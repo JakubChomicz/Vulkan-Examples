@@ -1,9 +1,9 @@
 VULKAN_SDK = os.getenv("VULKAN_SDK")
 
 IncludeDir = {}
+IncludeDir["stb_image"] =		"%{wks.location}/Core/dependencies/stb_image"
 IncludeDir["GLFW"] =	"%{wks.location}/Core/dependencies/GLFW/include"
 IncludeDir["HML"] =		"%{wks.location}/Core/dependencies/HML"
-IncludeDir["stb_image"] =		"%{wks.location}/Core/dependencies/stb_image"
 IncludeDir["VulkanSDK"] =	"%{VULKAN_SDK}/Include"
 IncludeDir["assimp"] =	"%{wks.location}/Core/dependencies/assimp/include"
 

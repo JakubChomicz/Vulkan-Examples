@@ -1,12 +1,3 @@
-[submodule "Core/dependencies/HML"]
-	path = Core/dependencies/HML
-	url = https://github.com/I6-6-6I/HML
-[submodule "Core/dependencies/assimp"]
-	path = Core/dependencies/assimp
-	url = https://github.com/I6-6-6I/assimp
-[submodule "Core/dependencies/GLFW"]
-	path = Core/dependencies/GLFW
-	url = https://github.com/I6-6-6I/glfw
 [submodule "Core/Dependencies/glfw"]
 	path = Core/Dependencies/glfw
 	url = https://github.com/I6-6-6I/glfw

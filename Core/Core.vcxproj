@@ -1,0 +1,153 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{2EB4837C-1AEB-840D-C3D7-6A10AFED000F}</ProjectGuid>
+    <IgnoreWarnCompileDuplicatedFilename>true</IgnoreWarnCompileDuplicatedFilename>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>Core</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>..\bin\Debug-windows-x86_64\Core\</OutDir>
+    <IntDir>..\bin-int\Debug-windows-x86_64\Core\</IntDir>
+    <TargetName>Core</TargetName>
+    <TargetExt>.lib</TargetExt>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>..\bin\Release-windows-x86_64\Core\</OutDir>
+    <IntDir>..\bin-int\Release-windows-x86_64\Core\</IntDir>
+    <TargetName>Core</TargetName>
+    <TargetExt>.lib</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;GLFW_INCLUDE_NONE;M_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>src;dependencies\GLFW\include;dependencies\HML;dependencies\stb_image;D:\VulkanSDK\1.3.216.0\Include;dependencies\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <Optimization>Disabled</Optimization>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <AdditionalDependencies>D:\VulkanSDK\1.3.216.0\Lib\vulkan-1.lib;D:\VulkanSDK\1.3.216.0\Lib\shaderc_sharedd.lib;D:\VulkanSDK\1.3.216.0\Lib\spirv-cross-cored.lib;D:\VulkanSDK\1.3.216.0\Lib\spirv-cross-glsld.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;GLFW_INCLUDE_NONE;M_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>src;dependencies\GLFW\include;dependencies\HML;dependencies\stb_image;D:\VulkanSDK\1.3.216.0\Include;dependencies\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <MinimalRebuild>false</MinimalRebuild>
+      <StringPooling>true</StringPooling>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+    <Lib>
+      <AdditionalDependencies>D:\VulkanSDK\1.3.216.0\Lib\vulkan-1.lib;D:\VulkanSDK\1.3.216.0\Lib\shaderc_shared.lib;D:\VulkanSDK\1.3.216.0\Lib\spirv-cross-core.lib;D:\VulkanSDK\1.3.216.0\Lib\spirv-cross-glsl.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="dependencies\HML\HML\HeaderMath.hpp" />
+    <ClInclude Include="dependencies\HML\HML\clip_space.hpp" />
+    <ClInclude Include="dependencies\HML\HML\common.hpp" />
+    <ClInclude Include="dependencies\HML\HML\defines\core_defs.hpp" />
+    <ClInclude Include="dependencies\HML\HML\defines\user_type_defs.hpp" />
+    <ClInclude Include="dependencies\HML\HML\defs.hpp" />
+    <ClInclude Include="dependencies\HML\HML\geometric_common.hpp" />
+    <ClInclude Include="dependencies\HML\HML\matrix2x2_t.hpp" />
+    <ClInclude Include="dependencies\HML\HML\matrix2x3_t.hpp" />
+    <ClInclude Include="dependencies\HML\HML\matrix2x4_t.hpp" />
+    <ClInclude Include="dependencies\HML\HML\matrix3x2_t.hpp" />
+    <ClInclude Include="dependencies\HML\HML\matrix3x3_t.hpp" />
+    <ClInclude Include="dependencies\HML\HML\matrix3x4_t.hpp" />
+    <ClInclude Include="dependencies\HML\HML\matrix4x2_t.hpp" />
+    <ClInclude Include="dependencies\HML\HML\matrix4x3_t.hpp" />
+    <ClInclude Include="dependencies\HML\HML\matrix4x4_t.hpp" />
+    <ClInclude Include="dependencies\HML\HML\matrix_operations.hpp" />
+    <ClInclude Include="dependencies\HML\HML\matrix_transformations.hpp" />
+    <ClInclude Include="dependencies\HML\HML\quaternion_t.hpp" />
+    <ClInclude Include="dependencies\HML\HML\setup.hpp" />
+    <ClInclude Include="dependencies\HML\HML\trigonometry_common.hpp" />
+    <ClInclude Include="dependencies\HML\HML\vector1_t.hpp" />
+    <ClInclude Include="dependencies\HML\HML\vector2_t.hpp" />
+    <ClInclude Include="dependencies\HML\HML\vector3_t.hpp" />
+    <ClInclude Include="dependencies\HML\HML\vector4_t.hpp" />
+    <ClInclude Include="dependencies\HML\HML\vector_common.hpp" />
+    <ClInclude Include="dependencies\stb_image\stb_image.h" />
+    <ClInclude Include="src\API\VulkanInit.hpp" />
+    <ClInclude Include="src\App.hpp" />
+    <ClInclude Include="src\EntryPoint.hpp" />
+    <ClInclude Include="src\Input.hpp" />
+    <ClInclude Include="src\Level.hpp" />
+    <ClInclude Include="src\Window.hpp" />
+    <ClInclude Include="src\pch.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="dependencies\stb_image\stb_image.cpp" />
+    <ClCompile Include="src\API\VulkanInit.cpp" />
+    <ClCompile Include="src\App.cpp" />
+    <ClCompile Include="src\Input.cpp" />
+    <ClCompile Include="src\Window.cpp" />
+    <ClCompile Include="src\pch.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="dependencies\GLFW\GLFW.vcxproj">
+      <Project>{154B857C-0182-860D-AA6E-6C109684020F}</Project>
+    </ProjectReference>
+    <ProjectReference Include="dependencies\assimp\assimp.vcxproj">
+      <Project>{724885F2-5EEA-AFC8-47A5-C31C33E63619}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

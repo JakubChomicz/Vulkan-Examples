@@ -1,0 +1,3 @@
+https://github.com/I6-6-6I/glfw
+https://github.com/I6-6-6I/assimp
+https://github.com/I6-6-6I/HML

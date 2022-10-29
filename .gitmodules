@@ -4,3 +4,6 @@
 [submodule "Core/dependencies/HML"]
 	path = Core/dependencies/HML
 	url = https://github.com/I6-6-6I/HML
+[submodule "Core/dependencies/GLFW"]
+	path = Core/dependencies/GLFW
+	url = https://github.com/I6-6-6I/glfw

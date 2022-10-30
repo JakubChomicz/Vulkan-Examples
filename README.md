@@ -1,9 +1,10 @@
 # Vulkan-Examples
+![image](https://user-images.githubusercontent.com/72545872/198892717-83cf9769-2b0c-46ba-94c5-302f24accfe8.png)
+
 ## :blue_book: Introduction
 A few Vulkan applications created in order to provide basic knowledge for begginers.<br>
 Project is using Premake as build system.
 
-![image](https://user-images.githubusercontent.com/72545872/198892717-83cf9769-2b0c-46ba-94c5-302f24accfe8.png)
 ## :gear: Build
 1. Clone this repo and save it on your disk.
 2. Go to: Vulkan Examples\build and run Win-GenProjects.bat

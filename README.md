@@ -14,6 +14,3 @@ Project is using Premake as build system.
  - [Cube](https://github.com/I6-6-6I/Vulkan-Examples/tree/master/Cube)
  - [Monke](https://github.com/I6-6-6I/Vulkan-Examples/tree/master/Monke)
  - [PlayerController](https://github.com/I6-6-6I/Vulkan-Examples/tree/master/PlayerController)
- 
- ## License
-[MIT](https://choosealicense.com/licenses/mit/)

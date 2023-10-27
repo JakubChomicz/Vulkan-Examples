@@ -5,6 +5,6 @@
   
 # Description
   
-  This example shows how can you draw objects by using vertex buffers and how can you easily manipulate their matricies using HML library and push Constants.
+  This example shows how you can draw objects by using vertex buffers and how you can easily manipulate their matricies using HML library and push Constants.
   
 </div>

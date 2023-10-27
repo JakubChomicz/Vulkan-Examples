@@ -3,6 +3,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 namespace Core
 {
@@ -18,7 +19,6 @@ namespace Core
 	vk::CommandPool Context::_graphicsCommandPool;
 	vk::CommandPool Context::_transferCommandPool;
 	vk::CommandPool Context::_computeCommandPool;
-	vk::DescriptorPool Context::_editorDescriptorPool;
 	vk::DescriptorPool Context::_descriptorPool;
 	std::vector<const char*> Context::_layers;
 	std::vector<const char*> Context::_instanceExtensions;
@@ -53,20 +53,30 @@ namespace Core
 #endif
 		return -1;
 	}
-	void Context::allocateBufferMemory(vk::Buffer& buffer, vk::DeviceMemory& mem)
+	void Context::allocateBufferMemory(vk::Buffer& buffer, vk::DeviceMemory& mem, vk::MemoryPropertyFlags flags, vk::MemoryAllocateFlags allocateFlags)
 	{
 		vk::MemoryRequirements memoryRequirements = Core::Context::_device->getBufferMemoryRequirements(buffer);
 		vk::MemoryAllocateInfo allocInfo;
 		allocInfo.allocationSize = memoryRequirements.size;
 		allocInfo.memoryTypeIndex = Core::Context::findMemoryType(memoryRequirements.memoryTypeBits,
-			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+			flags
 		);
+		vk::MemoryAllocateFlagsInfo flagsInfo;
+		if (allocateFlags != vk::MemoryAllocateFlagBits::eDeviceAddressCaptureReplay)
+		{
+			flagsInfo.flags = allocateFlags;
+			allocInfo.pNext = &flagsInfo;
+		}
 
 		mem = Core::Context::_device->allocateMemory(allocInfo);
 		Core::Context::_device->bindBufferMemory(buffer, mem, 0);
 	}
 	void Context::Init()
 	{
+		vk::DynamicLoader dl;
+		PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
+		VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
+
 		uint32_t glfwExtensionsCount = 0;
 		auto glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionsCount);
 		std::vector extensions(glfwExtensions, glfwExtensions + glfwExtensionsCount);
@@ -95,6 +105,7 @@ namespace Core
 			instanceInfo.pApplicationInfo = &appInfo;
 
 			_instance = vk::createInstanceUnique(instanceInfo);
+			VULKAN_HPP_DEFAULT_DISPATCHER.init(*_instance);
 		}
 		//Debug Messenger
 		{
@@ -110,7 +121,7 @@ namespace Core
 				vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
 				vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation;
 			debugInfo.pfnUserCallback = debugMessegerCallback;
-			_debugMessenger = _instance->createDebugUtilsMessengerEXTUnique(debugInfo, nullptr, _dispatcher);
+			_debugMessenger = _instance->createDebugUtilsMessengerEXTUnique(debugInfo, nullptr, VULKAN_HPP_DEFAULT_DISPATCHER);
 #endif
 		}
 	}
@@ -120,7 +131,6 @@ namespace Core
 		_device->destroyCommandPool(_graphicsCommandPool);
 		_device->destroyCommandPool(_transferCommandPool);
 		_device->destroyCommandPool(_computeCommandPool);
-		_device->destroyDescriptorPool(_editorDescriptorPool);
 		_device->destroyDescriptorPool(_descriptorPool);
 		for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
@@ -143,18 +153,6 @@ namespace Core
 			std::vector<vk::PhysicalDevice> _avaibleGPUs = _instance->enumeratePhysicalDevices();
 			std::cout << ("Enumerating GPUs...") << std::endl;
 			{
-#ifdef AZ_DEBUG
-				uint8_t gpuIterator = 0;
-				for (uint8_t i = 0; i < _avaibleGPUs.size(); i++)
-				{
-					auto props = _avaibleGPUs[i].getProperties();
-					AZ_TRACE("GPU[{0}]:", gpuIterator);
-					AZ_TRACE("\tName: {0}", props.deviceName);
-					AZ_TRACE("\tType: {0}", vk::to_string(props.deviceType));
-					AZ_TRACE("\tDriver Version: {0}.{1}.{2}", VK_VERSION_MAJOR(props.driverVersion), VK_VERSION_MINOR(props.driverVersion), VK_VERSION_PATCH(props.driverVersion));
-					gpuIterator++;
-				}
-#endif
 				std::multimap<uint32_t, vk::PhysicalDevice> GPUsChooseable;
 				for (auto gpu : _avaibleGPUs)
 				{
@@ -225,8 +223,60 @@ namespace Core
 			_queueFamilyIndices.computeQueueIndex = _queueFamilyIndices.computeFamily;
 		}
 		//Device
+		bool hasAccelerationStructureSupport = false;
 		{
+			vk::PhysicalDeviceFeatures2 features2{};
 			_deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+			auto extensions = _GPU.enumerateDeviceExtensionProperties();
+			for (auto ex : extensions)
+			{
+				std::string name = ex.extensionName.data();
+				if (name == VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)
+				{
+					_deviceExtensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+				}
+				else if (name == VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME)
+				{
+					_deviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+				}
+				else if (name == VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME)
+				{
+					_deviceExtensions.push_back(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
+				}
+				else if (name == VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)
+				{
+					_deviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+					hasAccelerationStructureSupport = true;
+				}
+				else if (name == VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
+				{
+					_deviceExtensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+				}
+				else if (name == VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME)
+				{
+					_deviceExtensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+				}
+			}
+			vk::PhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeature {};
+			rtPipelineFeature.rayTracingPipeline = true;
+			vk::PhysicalDeviceAccelerationStructureFeaturesKHR accelFeature {};
+			accelFeature.accelerationStructure = true;
+			vk::PhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeature {};
+			bufferDeviceAddressFeature.bufferDeviceAddress = true;
+			vk::PhysicalDeviceDescriptorIndexingFeatures descriptorIndexing {};
+
+			features2.pNext = &descriptorIndexing;
+			descriptorIndexing.pNext = &accelFeature;
+			accelFeature.pNext = &rtPipelineFeature;
+			rtPipelineFeature.pNext = &bufferDeviceAddressFeature;
+
+
+			_GPU.getFeatures2(&features2);
+
+			vk::PhysicalDeviceProperties2 prop2 {};
+			vk::PhysicalDeviceRayTracingPipelinePropertiesKHR m_rtProperties {};
+			prop2.pNext = &m_rtProperties;
+			_GPU.getProperties2(&prop2);
 
 			uint32_t index_count = 1;;
 			if (!_queueFamilyIndices.doesTransferShareGraphicsQueue())
@@ -264,9 +314,11 @@ namespace Core
 			deviceInfo.ppEnabledLayerNames = _layers.data();
 			deviceInfo.enabledExtensionCount = static_cast<uint32_t>(_deviceExtensions.size());
 			deviceInfo.ppEnabledExtensionNames = _deviceExtensions.data();
-			deviceInfo.pEnabledFeatures = &_GPU.getFeatures();
+			deviceInfo.pEnabledFeatures = nullptr;
+			deviceInfo.pNext = &features2;
 
 			_device = _GPU.createDeviceUnique(deviceInfo);
+			VULKAN_HPP_DEFAULT_DISPATCHER.init(*_device);
 
 			_graphicsQueue = _device->getQueue(_queueFamilyIndices.graphicsFamily, 0);
 			_transferQueue = _device->getQueue(_queueFamilyIndices.transferFamily, 0);
@@ -296,33 +348,9 @@ namespace Core
 			commandPoolInfo.queueFamilyIndex = _queueFamilyIndices.computeFamily;
 			_computeCommandPool = _device->createCommandPool(commandPoolInfo);
 		}
-		//Editor Descriptor Pool
-		{
-			vk::DescriptorPoolSize pool_sizes[] =
-			{
-				{ vk::DescriptorType::eSampler, 1000 },
-				{ vk::DescriptorType::eCombinedImageSampler, 1000 },
-				{  vk::DescriptorType::eSampledImage, 1000 },
-				{  vk::DescriptorType::eStorageImage, 1000 },
-				{  vk::DescriptorType::eUniformTexelBuffer, 1000 },
-				{  vk::DescriptorType::eStorageTexelBuffer, 1000 },
-				{  vk::DescriptorType::eUniformBuffer, 1000 },
-				{  vk::DescriptorType::eStorageBuffer, 1000 },
-				{  vk::DescriptorType::eUniformBufferDynamic, 1000 },
-				{  vk::DescriptorType::eStorageBufferDynamic, 1000 },
-				{  vk::DescriptorType::eInputAttachment, 1000 }
-			};
-			vk::DescriptorPoolCreateInfo pool_info = {};
-			pool_info.sType = vk::StructureType::eDescriptorPoolCreateInfo;
-			pool_info.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
-			pool_info.maxSets = 1000 * ((int)(sizeof(pool_sizes) / sizeof(*(pool_sizes))));
-			pool_info.poolSizeCount = (uint32_t)((int)(sizeof(pool_sizes) / sizeof(*(pool_sizes))));
-			pool_info.pPoolSizes = pool_sizes;
-			_editorDescriptorPool = Context::_device->createDescriptorPool(pool_info);
-		}
 		//Descriptor Pool
 		{
-			vk::DescriptorPoolSize pool_sizes[] =
+			std::vector<vk::DescriptorPoolSize> pool_sizes =
 			{
 				{ vk::DescriptorType::eSampler, 1000 },
 				{ vk::DescriptorType::eCombinedImageSampler, 1000 },
@@ -336,12 +364,14 @@ namespace Core
 				{  vk::DescriptorType::eStorageBufferDynamic, 1000 },
 				{  vk::DescriptorType::eInputAttachment, 1000 }
 			};
+			if(hasAccelerationStructureSupport) 
+				pool_sizes.push_back({ vk::DescriptorType::eAccelerationStructureKHR, 1000 });
 			vk::DescriptorPoolCreateInfo pool_info = {};
 			pool_info.sType = vk::StructureType::eDescriptorPoolCreateInfo;
 			pool_info.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
-			pool_info.maxSets = 1000 * ((int)(sizeof(pool_sizes) / sizeof(*(pool_sizes))));
-			pool_info.poolSizeCount = (uint32_t)((int)(sizeof(pool_sizes) / sizeof(*(pool_sizes))));
-			pool_info.pPoolSizes = pool_sizes;
+			pool_info.maxSets = 1000 * ((int)(sizeof(pool_sizes) / sizeof(pool_sizes.size() * sizeof(vk::DescriptorPoolSize))));
+			pool_info.poolSizeCount = (uint32_t)((int)(sizeof(pool_sizes) / sizeof(pool_sizes.size() * sizeof(vk::DescriptorPoolSize))));
+			pool_info.pPoolSizes = pool_sizes.data();
 			_descriptorPool = Context::_device->createDescriptorPool(pool_info);
 		}
 		imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -459,5 +489,37 @@ namespace Core
 			}
 		}
 		return -1;
+	}
+	ScratchBuffer createScratchBuffer(VkDeviceSize size)
+	{
+		ScratchBuffer scratchBuffer{};
+		// Buffer and memory
+		vk::BufferCreateInfo bufferCreateInfo{};
+		bufferCreateInfo.size = size;
+		bufferCreateInfo.usage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress;
+		scratchBuffer.handle = Core::Context::_device->createBuffer(bufferCreateInfo);
+		vk::MemoryRequirements memoryRequirements = Core::Context::_device->getBufferMemoryRequirements(scratchBuffer.handle);
+		vk::MemoryAllocateFlagsInfo memoryAllocateFlagsInfo{};
+		memoryAllocateFlagsInfo.flags = vk::MemoryAllocateFlagBits::eDeviceAddress;
+		vk::MemoryAllocateInfo memoryAllocateInfo = {};
+		memoryAllocateInfo.pNext = &memoryAllocateFlagsInfo;
+		memoryAllocateInfo.allocationSize = memoryRequirements.size;
+		memoryAllocateInfo.memoryTypeIndex = Core::Context::findMemoryType(memoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);
+		Core::Context::_device->allocateMemory(&memoryAllocateInfo, nullptr, &scratchBuffer.memory);
+		Core::Context::_device->bindBufferMemory(scratchBuffer.handle, scratchBuffer.memory, 0);
+		// Buffer device address
+		vk::BufferDeviceAddressInfoKHR bufferDeviceAddresInfo{};
+		bufferDeviceAddresInfo.buffer = scratchBuffer.handle;
+		scratchBuffer.deviceAddress = Core::Context::_device->getBufferAddressKHR(&bufferDeviceAddresInfo);
+		return scratchBuffer;
+	}
+	void deleteScratchBuffer(ScratchBuffer& scratchBuffer)
+	{
+		if (scratchBuffer.memory) {
+			Core::Context::_device->freeMemory(scratchBuffer.memory, nullptr);
+		}
+		if (scratchBuffer.handle) {
+			Core::Context::_device->destroyBuffer(scratchBuffer.handle, nullptr);
+		}
 	}
 }

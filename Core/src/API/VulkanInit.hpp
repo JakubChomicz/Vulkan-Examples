@@ -1,10 +1,19 @@
 #pragma once
+#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #include <vulkan/vulkan.hpp>
 
 #define MAX_FRAMES_IN_FLIGHT 2
 
 namespace Core
 {
+	struct ScratchBuffer
+	{
+		uint64_t deviceAddress = 0;
+		vk::Buffer handle = VK_NULL_HANDLE;
+		vk::DeviceMemory memory = VK_NULL_HANDLE;
+	};
+	ScratchBuffer createScratchBuffer(VkDeviceSize size);
+	void deleteScratchBuffer(ScratchBuffer& scratchBuffer);
 	struct QueueFamilyIndices
 	{
 	public:
@@ -59,7 +68,7 @@ namespace Core
 		static void Present();
 		static void WaitIdle();
 		static uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
-		static void allocateBufferMemory(vk::Buffer& buffer, vk::DeviceMemory& mem);
+		static void allocateBufferMemory(vk::Buffer& buffer, vk::DeviceMemory& mem, vk::MemoryPropertyFlags flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, vk::MemoryAllocateFlags allocInfo = vk::MemoryAllocateFlagBits::eDeviceAddressCaptureReplay);
 		static vk::UniqueInstance _instance;
 		static vk::DispatchLoaderDynamic _dispatcher;
 		static vk::UniqueHandle<vk::DebugUtilsMessengerEXT, vk::DispatchLoaderDynamic> _debugMessenger;
@@ -72,7 +81,6 @@ namespace Core
 		static vk::CommandPool _graphicsCommandPool;
 		static vk::CommandPool _transferCommandPool;
 		static vk::CommandPool _computeCommandPool;
-		static vk::DescriptorPool _editorDescriptorPool;
 		static vk::DescriptorPool _descriptorPool;
 		static std::vector<const char*> _layers;
 		static std::vector<const char*> _instanceExtensions;
@@ -83,7 +91,6 @@ namespace Core
 		static std::vector<vk::Semaphore>			renderFinishedSemaphores;
 		static std::vector<vk::Fence>				inFlightFences;
 		static std::vector<vk::Fence>				imagesInFlight;
-
 	};
 
 }

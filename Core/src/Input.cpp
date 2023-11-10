@@ -33,11 +33,15 @@ namespace Core
 	void Input::HideMouseCursor()
 	{
 		auto window = static_cast<GLFWwindow*>(App::Get().GetWindow().GetNativeWindow());
+		if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED)
+			return;
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	}
 	void Input::ShowMouseCursor()
 	{
 		auto window = static_cast<GLFWwindow*>(App::Get().GetWindow().GetNativeWindow());
+		if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_NORMAL)
+			return;
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	}
 	float Input::GetMouseX()

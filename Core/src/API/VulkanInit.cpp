@@ -460,8 +460,10 @@ namespace Core
 	}
 	void Context::RecreateSwapchain(uint32_t width, uint32_t height)
 	{
+		Context::WaitIdle();
 		Context::CreateSwapchain(width, height);
 		Context::CreateSwapchainImages();
+		Context::WaitIdle();
 	}
 	void Context::Present()
 	{

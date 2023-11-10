@@ -1091,14 +1091,14 @@ namespace Example
 		s_Data->cam->Destroy();
 		s_Data->bunny->Destroy();
 		s_Data->plane->Destroy();
+		Core::Context::_device->destroyDescriptorSetLayout(s_Data->CamDescriptorSetLayout);
+		Core::Context::_device->freeDescriptorSets(Core::Context::_descriptorPool, s_Data->CamDescriptorSet);
 		Destroy();
 		delete s_Data;
 	}
 
 	void RayTracing::Destroy()
 	{
-		Core::Context::_device->destroyDescriptorSetLayout(s_Data->CamDescriptorSetLayout);
-		Core::Context::_device->freeDescriptorSets(Core::Context::_descriptorPool, s_Data->CamDescriptorSet);
 		Core::Context::_device->destroyPipelineLayout(s_Data->pipelineLayout);
 		Core::Context::_device->destroyPipeline(s_Data->graphicsPipeline);
 		for (auto framebuffer : s_Data->framebuffers)

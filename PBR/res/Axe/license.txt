@@ -1,0 +1,11 @@
+Model Information:
+* title:	Axe
+* source:	https://sketchfab.com/3d-models/axe-59da38a2579c418ab24dd2c0dda6e651
+* author:	FedNick (https://sketchfab.com/FedNick)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Axe" (https://sketchfab.com/3d-models/axe-59da38a2579c418ab24dd2c0dda6e651) by FedNick (https://sketchfab.com/FedNick) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

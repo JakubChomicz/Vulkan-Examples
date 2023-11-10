@@ -30,20 +30,25 @@ namespace Example
 	void Camera::OnUpdate()
 	{
 		UpdateProjection();
-		auto [Wposx, Wposy] = Core::Input::GetWindowPos();
-		const HML::Vector2<>& mouse{ Core::Input::GetMouseX(), Core::Input::GetMouseY() };
-		HML::Vector2<> delta = (mouse - m_InitialMousePosition) * 0.003f;
-		m_InitialMousePosition = mouse;
-		Core::Input::HideMouseCursor();
-		MouseRotate();
-		if (Core::Input::IsKeyPressed(65))	//65 = KeyCode A
-			m_Position += -GetRightDirection() * CameraMovemnetSpeed;
-		if (Core::Input::IsKeyPressed(68))	//68 = KeyCode D
-			m_Position += GetRightDirection() * CameraMovemnetSpeed;
-		if (Core::Input::IsKeyPressed(87))	//87 = KeyCode W
-			m_Position += GetForwardDirection() * CameraMovemnetSpeed;
-		if (Core::Input::IsKeyPressed(83))	//83 = KeyCode S
-			m_Position += -GetForwardDirection() * CameraMovemnetSpeed;
+		if (Core::Input::IsMouseButtonPressed(1))	//Mous button right
+		{
+			auto [Wposx, Wposy] = Core::Input::GetWindowPos();
+			const HML::Vector2<>& mouse{ Core::Input::GetMouseX(), Core::Input::GetMouseY() };
+			HML::Vector2<> delta = (mouse - m_InitialMousePosition) * 0.003f;
+			m_InitialMousePosition = mouse;
+			Core::Input::HideMouseCursor();
+			MouseRotate();
+			if (Core::Input::IsKeyPressed(65))	//65 = KeyCode A
+				m_Position += -GetRightDirection() * CameraMovemnetSpeed;
+			if (Core::Input::IsKeyPressed(68))	//68 = KeyCode D
+				m_Position += GetRightDirection() * CameraMovemnetSpeed;
+			if (Core::Input::IsKeyPressed(87))	//87 = KeyCode W
+				m_Position += GetForwardDirection() * CameraMovemnetSpeed;
+			if (Core::Input::IsKeyPressed(83))	//83 = KeyCode S
+				m_Position += -GetForwardDirection() * CameraMovemnetSpeed;
+		}
+		else
+			Core::Input::ShowMouseCursor();
 		UpdateView();
 		UpdateBuffer();
 	}

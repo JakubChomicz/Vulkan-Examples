@@ -42,7 +42,6 @@ namespace Example
 		HML::Vector3<> m_Position = { 0.0f, 10.0f, -20.0f };
 		HML::Vector3<> m_Rotation = { 0.0f, 0.0f, 0.0f };
 		bool RotationFirstClick = false;
-
 		HML::Vector2<> m_InitialMousePosition = { 0.0f, 0.0f };
 
 		float m_Distance = 10.0f;

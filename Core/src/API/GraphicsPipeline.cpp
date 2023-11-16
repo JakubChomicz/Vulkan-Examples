@@ -30,7 +30,7 @@ namespace Core
 		moduleInfo.flags = vk::ShaderModuleCreateFlags();
 		moduleInfo.codeSize = sourceCode.size();
 		moduleInfo.pCode = reinterpret_cast<const uint32_t*>(sourceCode.data());
-		return Core::Context::_device->createShaderModule(moduleInfo);
+		return Context::Get()->GetDevice()->createShaderModule(moduleInfo);
 	}
 	GraphicsPipeline::GraphicsPipeline(std::string vertexShaderCode, std::string fragmentShaderCode,
 		vk::VertexInputBindingDescription bdesc, std::vector<vk::VertexInputAttributeDescription> attributes, uint32_t pushConstantSize,
@@ -71,14 +71,14 @@ namespace Core
 			vk::Viewport viewport = {};
 			viewport.x = 0.0f;
 			viewport.y = 0.0f;
-			viewport.width = (float)Core::Context::_swapchain.extent.width;
-			viewport.height = (float)Core::Context::_swapchain.extent.height;
+			viewport.width = (float)Context::Get()->GetSwapchain().extent.width;
+			viewport.height = (float)Context::Get()->GetSwapchain().extent.height;
 			viewport.minDepth = 0.0f;
 			viewport.maxDepth = 1.0f;
 			vk::Rect2D scissor = {};
 			scissor.offset.x = 0.0f;
 			scissor.offset.y = 0.0f;
-			scissor.extent = Core::Context::_swapchain.extent;
+			scissor.extent = Context::Get()->GetSwapchain().extent;
 			vk::PipelineViewportStateCreateInfo viewportState{};
 			viewportState.flags = vk::PipelineViewportStateCreateFlags();
 			viewportState.viewportCount = 1;
@@ -149,7 +149,7 @@ namespace Core
 				layoutInfo.pPushConstantRanges = &range;
 			}
 
-			m_PipelineLayout = Core::Context::_device->createPipelineLayout(layoutInfo);
+			m_PipelineLayout = Context::Get()->GetDevice()->createPipelineLayout(layoutInfo);
 
 			//Extra stuff
 			vk::GraphicsPipelineCreateInfo pipelineInfo{};
@@ -168,11 +168,11 @@ namespace Core
 			pipelineInfo.subpass = 0;
 			pipelineInfo.basePipelineHandle = nullptr;
 
-			m_Pipeline = Core::Context::_device->createGraphicsPipeline(nullptr, pipelineInfo).value;
+			m_Pipeline = Context::Get()->GetDevice()->createGraphicsPipeline(nullptr, pipelineInfo).value;
 
 
-			Core::Context::_device->destroyShaderModule(vertexShader);
-			Core::Context::_device->destroyShaderModule(fragmentShader);
+			Context::Get()->GetDevice()->destroyShaderModule(vertexShader);
+			Context::Get()->GetDevice()->destroyShaderModule(fragmentShader);
 		}
 	}
 
@@ -182,8 +182,8 @@ namespace Core
 
 	void GraphicsPipeline::Destroy()
 	{
-		Core::Context::_device->destroyPipelineLayout(m_PipelineLayout);
-		Core::Context::_device->destroyPipeline(m_Pipeline);
+		Context::Get()->GetDevice()->destroyPipelineLayout(m_PipelineLayout);
+		Context::Get()->GetDevice()->destroyPipeline(m_Pipeline);
 	}
 
 }

@@ -20,16 +20,16 @@ namespace Core
 		}
 		//Rendering Interface Initialization
 		{
-			Context::SetWindowSurface(m_Window->GetNativeWindow());
-			Context::InitDevice();
-			Context::CreateSwapchain(m_Window->GetWidth(), m_Window->GetHeight());
-			Context::CreateSwapchainImages();
+			Context::Get()->SetWindowSurface(m_Window->GetNativeWindow());
+			Context::Get()->InitDevice();
+			Context::Get()->CreateSwapchain(m_Window->GetWidth(), m_Window->GetHeight());
+			Context::Get()->CreateSwapchainImages();
 		}
 	}
 
 	App::~App()
 	{
-		Context::_device->waitIdle();
+		Context::Get()->GetDevice()->waitIdle();
 		m_lvl->Shutdown();
 		Context::Shutdown();
 	}
@@ -42,9 +42,9 @@ namespace Core
 			{
 				if (m_Window->getWindowData().Width > 0 && m_Window->getWindowData().Height > 0)
 				{
-					Context::AcquireNextSwapchainImage();
+					Context::Get()->AcquireNextSwapchainImage();
 					m_lvl->OnUpdate();
-					Context::Present();
+					Context::Get()->Present();
 				}
 			}
 		}
@@ -57,10 +57,10 @@ namespace Core
 	{
 		if (width == 0 || height == 0)
 			return false;
-		Context::WaitIdle();
+		Context::Get()->WaitIdle();
 		m_lvl->Destroy();
-		Context::DestroySwapchain();
-		Context::RecreateSwapchain(width, height);
+		Context::Get()->DestroySwapchain();
+		Context::Get()->RecreateSwapchain(width, height);
 		m_lvl->Recreate();
 
 		return false;

@@ -10,7 +10,7 @@ namespace Core
 		virtual ~FrameBuffer();
 		void Destroy();
 
-		const vk::Framebuffer GetFrameBuffer() const { return m_Handles[Core::Context::_swapchain.currentFrame]; }
+		const vk::Framebuffer GetFrameBuffer() const { return m_Handles[Context::Get()->GetSwapchain().currentFrame]; }
 
 		const uint32_t GetFramesInFlightCount() const { return m_Handles.size(); }
 

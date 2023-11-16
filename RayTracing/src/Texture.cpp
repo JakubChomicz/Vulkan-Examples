@@ -5,13 +5,13 @@ namespace Example
 {
     void Texture::Destroy()
     {
-        Core::Context::_device->freeDescriptorSets(Core::Context::_descriptorPool, m_set);
-        Core::Context::_device->destroyDescriptorSetLayout(m_layout);
-        Core::Context::_device->destroyBuffer(m_buffer);
-        Core::Context::_device->destroyImageView(m_view);
-        Core::Context::_device->destroySampler(m_sampler);
-        Core::Context::_device->destroyImage(m_img);
-        Core::Context::_device->freeMemory(m_mem);
+        Core::Context::Get()->GetDevice()->freeDescriptorSets(Core::Context::Get()->GetDescriptorPool(), m_set);
+        Core::Context::Get()->GetDevice()->destroyDescriptorSetLayout(m_layout);
+        Core::Context::Get()->GetDevice()->destroyBuffer(m_buffer);
+        Core::Context::Get()->GetDevice()->destroyImageView(m_view);
+        Core::Context::Get()->GetDevice()->destroySampler(m_sampler);
+        Core::Context::Get()->GetDevice()->destroyImage(m_img);
+        Core::Context::Get()->GetDevice()->freeMemory(m_mem);
     }
     void Texture::load(const std::string& path)
 	{
@@ -42,15 +42,15 @@ namespace Example
             imgInfo.samples = vk::SampleCountFlagBits::e1;
             imgInfo.sharingMode = vk::SharingMode::eExclusive;
 
-            m_img = Core::Context::_device->createImage(imgInfo);
+            m_img = Core::Context::Get()->GetDevice()->createImage(imgInfo);
 
-            vk::MemoryRequirements memReqs = Core::Context::_device->getImageMemoryRequirements(m_img);
+            vk::MemoryRequirements memReqs = Core::Context::Get()->GetDevice()->getImageMemoryRequirements(m_img);
             vk::MemoryAllocateInfo memAlloc;
             memAlloc.sType = vk::StructureType::eMemoryAllocateInfo;
             memAlloc.allocationSize = memReqs.size;
-            memAlloc.memoryTypeIndex = Core::Context::findMemoryType(memReqs.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);		//FIX
-            m_mem = Core::Context::_device->allocateMemory(memAlloc);
-            Core::Context::_device->bindImageMemory(m_img, m_mem, /*vk::DeviceSize*/0);
+            memAlloc.memoryTypeIndex = Core::Context::Get()->findMemoryType(memReqs.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);		//FIX
+            m_mem = Core::Context::Get()->GetDevice()->allocateMemory(memAlloc);
+            Core::Context::Get()->GetDevice()->bindImageMemory(m_img, m_mem, /*vk::DeviceSize*/0);
         }
         //Create Image View
         {
@@ -65,7 +65,7 @@ namespace Example
             imgViewInfo.subresourceRange.baseArrayLayer = 0;
             imgViewInfo.subresourceRange.layerCount = 1;
             imgViewInfo.image = m_img;
-            m_view = Core::Context::_device->createImageView(imgViewInfo);
+            m_view = Core::Context::Get()->GetDevice()->createImageView(imgViewInfo);
         }
         //Create Sampler
         {
@@ -82,11 +82,11 @@ namespace Example
             samplerInfo.compareEnable = false;
             samplerInfo.compareOp = vk::CompareOp::eAlways;
             samplerInfo.mipLodBias = 0.0f;
-            samplerInfo.maxAnisotropy = Core::Context::_GPU.getProperties().limits.maxSamplerAnisotropy;
+            samplerInfo.maxAnisotropy = Core::Context::Get()->GetGPU().getProperties().limits.maxSamplerAnisotropy;
             samplerInfo.minLod = 0.0f;
             samplerInfo.maxLod = 0.0f;
             samplerInfo.borderColor = vk::BorderColor::eFloatOpaqueBlack;
-            m_sampler = Core::Context::_device->createSampler(samplerInfo);
+            m_sampler = Core::Context::Get()->GetDevice()->createSampler(samplerInfo);
         }
         // Create the Upload Buffer:
         {
@@ -95,19 +95,19 @@ namespace Example
             info.size = imgSize;
             info.usage = vk::BufferUsageFlagBits::eTransferSrc;
             info.sharingMode = vk::SharingMode::eExclusive;
-            tempBuffer = Core::Context::_device->createBuffer(info);
-            auto memReq = Core::Context::_device->getBufferMemoryRequirements(tempBuffer);
+            tempBuffer = Core::Context::Get()->GetDevice()->createBuffer(info);
+            auto memReq = Core::Context::Get()->GetDevice()->getBufferMemoryRequirements(tempBuffer);
             vk::MemoryAllocateInfo allocate;
             allocate.sType = vk::StructureType::eMemoryAllocateInfo;
             allocate.allocationSize = memReq.size;
             vk::MemoryPropertyFlags flags = vk::MemoryPropertyFlagBits::eHostVisible;
-            allocate.memoryTypeIndex = Core::Context::findMemoryType(memReq.memoryTypeBits, flags);
-            tempmemory = Core::Context::_device->allocateMemory(allocate);
-            Core::Context::_device->bindBufferMemory(tempBuffer, tempmemory, 0);
+            allocate.memoryTypeIndex = Core::Context::Get()->findMemoryType(memReq.memoryTypeBits, flags);
+            tempmemory = Core::Context::Get()->GetDevice()->allocateMemory(allocate);
+            Core::Context::Get()->GetDevice()->bindBufferMemory(tempBuffer, tempmemory, 0);
             /// /
-            auto data = Core::Context::_device->mapMemory(tempmemory, 0, imgSize);     //FIX
+            auto data = Core::Context::Get()->GetDevice()->mapMemory(tempmemory, 0, imgSize);     //FIX
             memcpy(data, pixels, static_cast<size_t>(imgSize));
-            Core::Context::_device->unmapMemory(tempmemory);
+            Core::Context::Get()->GetDevice()->unmapMemory(tempmemory);
         }
         stbi_image_free(pixels);
 
@@ -116,9 +116,9 @@ namespace Example
             vk::CommandBufferAllocateInfo allocinfo;
             allocinfo.sType = vk::StructureType::eCommandBufferAllocateInfo;
             allocinfo.level = vk::CommandBufferLevel::ePrimary;
-            allocinfo.commandPool = Core::Context::_graphicsCommandPool;
+            allocinfo.commandPool = Core::Context::Get()->GetGraphicsCommandPool();
             allocinfo.commandBufferCount = 1;
-            auto tempVecCmd = Core::Context::_device->allocateCommandBuffers(allocinfo);
+            auto tempVecCmd = Core::Context::Get()->GetDevice()->allocateCommandBuffers(allocinfo);
             transCmd = tempVecCmd.front();
 
             vk::CommandBufferBeginInfo beg;
@@ -176,15 +176,15 @@ namespace Example
             submitThis.commandBufferCount = 1;
             submitThis.pCommandBuffers = &transCmd;
 
-            Core::Context::_graphicsQueue.submit(submitThis);
+            Core::Context::Get()->GetGraphicsQueue().submit(submitThis);
         }
 
-        Core::Context::_graphicsQueue.waitIdle();
+        Core::Context::Get()->GetGraphicsQueue().waitIdle();
 
-        Core::Context::_device->freeCommandBuffers(Core::Context::_graphicsCommandPool, transCmd);
+        Core::Context::Get()->GetDevice()->freeCommandBuffers(Core::Context::Get()->GetGraphicsCommandPool(), transCmd);
 
-        Core::Context::_device->destroyBuffer(tempBuffer);
-        Core::Context::_device->freeMemory(tempmemory);
+        Core::Context::Get()->GetDevice()->destroyBuffer(tempBuffer);
+        Core::Context::Get()->GetDevice()->freeMemory(tempmemory);
 
 		vk::DescriptorSetLayoutBinding samplerLayoutBinding{};
 		samplerLayoutBinding.binding = 0;
@@ -196,15 +196,15 @@ namespace Example
 		vk::DescriptorSetLayoutCreateInfo layoutInfo{};
 		layoutInfo.bindingCount = 1;
 		layoutInfo.pBindings = &samplerLayoutBinding;
-		m_layout = Core::Context::_device->createDescriptorSetLayout(layoutInfo);
+		m_layout = Core::Context::Get()->GetDevice()->createDescriptorSetLayout(layoutInfo);
 
 		vk::DescriptorSetAllocateInfo dinfo;
 		dinfo.sType = vk::StructureType::eDescriptorSetAllocateInfo;
-		dinfo.descriptorPool = Core::Context::_descriptorPool;
+		dinfo.descriptorPool = Core::Context::Get()->GetDescriptorPool();
 		dinfo.descriptorSetCount = 1;
 		dinfo.pSetLayouts = &m_layout;
 
-		m_set = Core::Context::_device->allocateDescriptorSets(dinfo).front();
+		m_set = Core::Context::Get()->GetDevice()->allocateDescriptorSets(dinfo).front();
 
 		vk::DescriptorImageInfo imageInfo{};
 		imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
@@ -220,7 +220,7 @@ namespace Example
 		write.descriptorCount = 1;
 		write.pImageInfo = &imageInfo;
 
-		Core::Context::_device->updateDescriptorSets(write, nullptr);
+		Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 
 	}
 }

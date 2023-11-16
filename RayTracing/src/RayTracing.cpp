@@ -54,62 +54,10 @@ namespace Example
 		moduleInfo.flags = vk::ShaderModuleCreateFlags();
 		moduleInfo.codeSize = sourceCode.size();
 		moduleInfo.pCode = reinterpret_cast<const uint32_t*>(sourceCode.data());
-		return Core::Context::_device->createShaderModule(moduleInfo);
+		return Core::Context::Get()->GetDevice()->createShaderModule(moduleInfo);
 	}
-	struct RayPushConstant
-	{
-		HML::Vector4<>  clearColor;
-		HML::Vector3<>  lightPosition;
-		float lightIntensity;
-		int   lightType;
-	};
-	class ShaderBindingTable 
-	{
-	public:
-		ShaderBindingTable(uint32_t handleCount)
-		{
-			vk::PhysicalDeviceRayTracingPipelinePropertiesKHR prop{};
-			vk::PhysicalDeviceProperties2 prop2{};
-			prop2.pNext = &prop;
-			Core::Context::_GPU.getProperties2(&prop2);
-
-			vk::BufferCreateInfo bufInfo;
-			bufInfo.usage = vk::BufferUsageFlagBits::eShaderBindingTableKHR | vk::BufferUsageFlagBits::eShaderDeviceAddress;
-			bufInfo.size = prop.shaderGroupHandleSize * handleCount;
-			bufInfo.sharingMode = vk::SharingMode::eExclusive;
-			buffer = Core::Context::_device->createBuffer(bufInfo);
-
-			size = prop.shaderGroupHandleSize * handleCount;
-
-			vk::MemoryRequirements memoryRequirements = Core::Context::_device->getBufferMemoryRequirements(buffer);
-
-			vk::MemoryAllocateInfo allocInfo{};
-			allocInfo.allocationSize = prop.shaderGroupHandleSize * handleCount;
-			allocInfo.memoryTypeIndex = Core::Context::findMemoryType(memoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-
-			mem = Core::Context::_device->allocateMemory(allocInfo);
-
-			vk::BufferDeviceAddressInfo addressinfo;
-			addressinfo.buffer = buffer;
-
-			//const uint32_t handleSizeAligned = vks::tools::alignedSize(rayTracingPipelineProperties.shaderGroupHandleSize, rayTracingPipelineProperties.shaderGroupHandleAlignment);	//Might need fix
-			vk::StridedDeviceAddressRegionKHR stridedDeviceAddressRegionKHR{};
-			stridedDeviceAddressRegionKHR.deviceAddress = Core::Context::_device->getBufferAddressKHR(addressinfo);
-			stridedDeviceAddressRegionKHR.stride = prop.shaderGroupHandleSize;																											//Might need fix handleSizeAligned HERE
-			stridedDeviceAddressRegionKHR.size = handleCount * prop.shaderGroupHandleSize;																								//Might need fix handleCount * handleSizeAligned HERE
-
-			stridedDeviceAddressRegion = stridedDeviceAddressRegionKHR;
-
-			Core::Context::_device->mapMemory(mem, 0, size);	//DELETE MAYBE
-		}
-		uint32_t size{};
-		vk::Buffer buffer{};
-		vk::DeviceMemory mem{};
-		vk::StridedDeviceAddressRegionKHR stridedDeviceAddressRegion{};
-	};
 	struct Data
 	{
-		RayPushConstant Ray{};
 		struct DepthAttachment
 		{
 			vk::Image image;
@@ -125,8 +73,6 @@ namespace Example
 		vk::VertexInputBindingDescription bdesc;
 		std::vector<vk::VertexInputAttributeDescription> attributes;
 		vk::PipelineLayout pipelineLayout;
-		vk::PipelineLayout RTpipelineLayout;
-		vk::Pipeline RTPipeline;
 		vk::Pipeline graphicsPipeline;
 		vk::RenderPass renderpass;
 		std::vector<vk::Framebuffer> framebuffers;
@@ -144,109 +90,13 @@ namespace Example
 		vk::DescriptorSetLayout CamDescriptorSetLayout;
 		vk::DescriptorSet CamDescriptorSet;
 
-		std::shared_ptr<ShaderBindingTable> raygen;
-		std::shared_ptr<ShaderBindingTable> miss;
-		std::shared_ptr<ShaderBindingTable> hit;
-
-		vk::StridedDeviceAddressRegionKHR m_rgenRegion{};
-		vk::StridedDeviceAddressRegionKHR m_missRegion{};
-		vk::StridedDeviceAddressRegionKHR m_hitRegion{};
-		vk::StridedDeviceAddressRegionKHR m_callRegion{};
-
 		AccelerationStructure TopLevelAccelerationStructure;
 		vk::DescriptorSetLayout RT_SetLayout;
 		vk::DescriptorSet Rt_Set;
-		struct StorageImage
-		{
-			vk::Image handle;
-			vk::ImageView view_handle;
-			vk::DeviceMemory mem;
-		};
-		struct ShaderBindingTableBufferData
-		{
-			vk::Buffer buffer;
-			vk::DeviceMemory mem;
-			vk::DeviceSize size;
-		};
-		ShaderBindingTableBufferData RTShaderBindingTableBuffer;
-		StorageImage storageImg;
-		std::vector<vk::RayTracingShaderGroupCreateInfoKHR> rtShaderGroups;
 
 		bool needsResize = true;
 	};
 	static Data* s_Data = new Data();
-
-	void CreateStorageImage(vk::Format format)
-	{
-		vk::ImageCreateInfo image{};
-		image.imageType = vk::ImageType::e2D;
-		image.format = format;
-		image.extent.width = Core::Context::_swapchain.extent.width;
-		image.extent.height = Core::Context::_swapchain.extent.height;
-		image.extent.depth = 1;
-		image.mipLevels = 1;
-		image.arrayLayers = 1;
-		image.samples = vk::SampleCountFlagBits::e1;
-		image.tiling = vk::ImageTiling::eOptimal;
-		image.usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eStorage;
-		image.initialLayout = vk::ImageLayout::eUndefined;
-		s_Data->storageImg.handle = Core::Context::_device->createImage(image);
-
-		vk::MemoryRequirements memReqs;
-		memReqs = Core::Context::_device->getImageMemoryRequirements(s_Data->storageImg.handle);
-		vk::MemoryAllocateInfo memoryAllocateInfo{};
-		memoryAllocateInfo.allocationSize = memReqs.size;
-		memoryAllocateInfo.memoryTypeIndex = Core::Context::findMemoryType(memReqs.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);
-		s_Data->storageImg.mem = Core::Context::_device->allocateMemory(memoryAllocateInfo);
-		Core::Context::_device->bindImageMemory(s_Data->storageImg.handle, s_Data->storageImg.mem, 0);
-
-		vk::ImageSubresourceRange range{};
-		range.aspectMask = vk::ImageAspectFlagBits::eColor;
-		range.baseMipLevel = 0;
-		range.levelCount = 1;
-		range.baseArrayLayer = 0;
-		range.layerCount = 1;
-
-		vk::ImageViewCreateInfo colorImageView{};
-		colorImageView.viewType = vk::ImageViewType::e2D;
-		colorImageView.format = format;
-		colorImageView.subresourceRange = range;
-		colorImageView.image = s_Data->storageImg.handle;
-		s_Data->storageImg.view_handle = Core::Context::_device->createImageView(colorImageView);
-
-		vk::CommandBufferAllocateInfo inf;
-		inf.level = vk::CommandBufferLevel::ePrimary;
-		inf.commandBufferCount = 1;
-		inf.commandPool = Core::Context::_graphicsCommandPool;
-
-		vk::CommandBuffer cmdBuffer = Core::Context::_device->allocateCommandBuffers(inf)[0];
-		vk::CommandBufferBeginInfo beginfo{};
-		beginfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
-		cmdBuffer.begin(beginfo);
-		
-		vk::ImageMemoryBarrier barrier;
-
-		barrier.oldLayout = vk::ImageLayout::eUndefined;
-		barrier.newLayout = vk::ImageLayout::eGeneral;
-		barrier.image = s_Data->storageImg.handle;
-		barrier.subresourceRange = range;
-		barrier.srcAccessMask = vk::AccessFlagBits::eNone;
-		//barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;		//For some reason this should be ok
-
-		cmdBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, vk::DependencyFlags(), nullptr, nullptr, barrier);
-
-		cmdBuffer.end();
-		vk::SubmitInfo sub;
-		sub.commandBufferCount = 1;
-		sub.pCommandBuffers = &cmdBuffer;
-		sub.pSignalSemaphores = nullptr;
-		sub.signalSemaphoreCount = 0;
-		sub.pWaitSemaphores = nullptr;
-		sub.waitSemaphoreCount = 0;
-		Core::Context::_graphicsQueue.submit(sub);
-		Core::Context::_device->waitIdle();
-		Core::Context::_device->freeCommandBuffers(Core::Context::_graphicsCommandPool, cmdBuffer);
-	}
 
 	static void CreateTopLevelAccelerationStructure(HML::Mat4x4<float> bunnyTransformationMatrix = HML::Mat4x4<float>(1.0f), HML::Mat4x4<float> planeTransformationMatrix = HML::Mat4x4<float>(1.0f), bool Recreate = false)
 	{
@@ -306,23 +156,20 @@ namespace Example
 		ibufferinfo.usage = vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR;
 		ibufferinfo.size = 4096 * sizeof(vk::AccelerationStructureInstanceKHR);
 		ibufferinfo.sharingMode = vk::SharingMode::eExclusive;
-		vk::Buffer instancesBuffer = Core::Context::_device->createBuffer(ibufferinfo);
+		vk::Buffer instancesBuffer = Core::Context::Get()->GetDevice()->createBuffer(ibufferinfo);
 		
 		vk::DeviceMemory instancesBufferMemory;
 
-		Core::Context::allocateBufferMemory(instancesBuffer, instancesBufferMemory, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, vk::MemoryAllocateFlagBits::eDeviceAddress);
+		Core::Context::Get()->allocateBufferMemory(instancesBuffer, instancesBufferMemory, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, vk::MemoryAllocateFlagBits::eDeviceAddress);
 
-		//if (Recreate)
-		//{
-			void* imemlocation = Core::Context::_device->mapMemory(instancesBufferMemory, 0, sizeof(VkAccelerationStructureInstanceKHR));
-			memcpy(imemlocation, instances.data(), 2 * sizeof(vk::AccelerationStructureInstanceKHR));
-			Core::Context::_device->unmapMemory(instancesBufferMemory);
-		//}
+		void* imemlocation = Core::Context::Get()->GetDevice()->mapMemory(instancesBufferMemory, 0, sizeof(VkAccelerationStructureInstanceKHR));
+		memcpy(imemlocation, instances.data(), 2 * sizeof(vk::AccelerationStructureInstanceKHR));
+		Core::Context::Get()->GetDevice()->unmapMemory(instancesBufferMemory);
 
 		vk::BufferDeviceAddressInfo info1;
 		info1.buffer = instancesBuffer;
 		vk::DeviceOrHostAddressConstKHR instanceDataDeviceAddress;
-		instanceDataDeviceAddress.deviceAddress = Core::Context::_device->getBufferAddressKHR(info1);
+		instanceDataDeviceAddress.deviceAddress = Core::Context::Get()->GetDevice()->getBufferAddressKHR(info1);
 
 		vk::AccelerationStructureGeometryKHR accelerationStructureGeometry{};
 		accelerationStructureGeometry.geometryType = vk::GeometryTypeKHR::eInstances;
@@ -342,34 +189,34 @@ namespace Example
 		uint32_t primitive_count = 10;
 
 		vk::AccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{};
-		Core::Context::_device->getAccelerationStructureBuildSizesKHR(vk::AccelerationStructureBuildTypeKHR::eDevice, &accelerationStructureBuildGeometryInfo, &primitive_count, &accelerationStructureBuildSizesInfo);
+		Core::Context::Get()->GetDevice()->getAccelerationStructureBuildSizesKHR(vk::AccelerationStructureBuildTypeKHR::eDevice, &accelerationStructureBuildGeometryInfo, &primitive_count, &accelerationStructureBuildSizesInfo);
 
 		vk::BufferCreateInfo bufferCreateInfo{};
 		bufferCreateInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
 		bufferCreateInfo.usage = vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR | vk::BufferUsageFlagBits::eShaderDeviceAddress;
-		s_Data->TopLevelAccelerationStructure.buffer = Core::Context::_device->createBuffer(bufferCreateInfo);
+		s_Data->TopLevelAccelerationStructure.buffer = Core::Context::Get()->GetDevice()->createBuffer(bufferCreateInfo);
 
-		vk::MemoryRequirements memoryRequirements = Core::Context::_device->getBufferMemoryRequirements(s_Data->TopLevelAccelerationStructure.buffer);
+		vk::MemoryRequirements memoryRequirements = Core::Context::Get()->GetDevice()->getBufferMemoryRequirements(s_Data->TopLevelAccelerationStructure.buffer);
 		vk::MemoryAllocateFlagsInfo memoryAllocateFlagsInfo{};
 		memoryAllocateFlagsInfo.flags = vk::MemoryAllocateFlagBits::eDeviceAddress;
 		vk::MemoryAllocateInfo memoryAllocateInfo{};
 		memoryAllocateInfo.pNext = &memoryAllocateFlagsInfo;
 		memoryAllocateInfo.allocationSize = memoryRequirements.size;
-		memoryAllocateInfo.memoryTypeIndex = Core::Context::findMemoryType(memoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);
-		Core::Context::_device->allocateMemory(&memoryAllocateInfo, nullptr, &s_Data->TopLevelAccelerationStructure.memory);
-		Core::Context::_device->bindBufferMemory(s_Data->TopLevelAccelerationStructure.buffer, s_Data->TopLevelAccelerationStructure.memory, 0);
+		memoryAllocateInfo.memoryTypeIndex = Core::Context::Get()->findMemoryType(memoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);
+		Core::Context::Get()->GetDevice()->allocateMemory(&memoryAllocateInfo, nullptr, &s_Data->TopLevelAccelerationStructure.memory);
+		Core::Context::Get()->GetDevice()->bindBufferMemory(s_Data->TopLevelAccelerationStructure.buffer, s_Data->TopLevelAccelerationStructure.memory, 0);
 		// Acceleration structure
 		vk::AccelerationStructureCreateInfoKHR accelerationStructureCreate_info{};
 		accelerationStructureCreate_info.buffer = s_Data->TopLevelAccelerationStructure.buffer;
 		accelerationStructureCreate_info.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
 		accelerationStructureCreate_info.type = vk::AccelerationStructureTypeKHR::eTopLevel;
 
-		s_Data->TopLevelAccelerationStructure.handle = Core::Context::_device->createAccelerationStructureKHR(accelerationStructureCreate_info);
+		s_Data->TopLevelAccelerationStructure.handle = Core::Context::Get()->GetDevice()->createAccelerationStructureKHR(accelerationStructureCreate_info);
 
 		// AS device address
 		vk::AccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
 		accelerationDeviceAddressInfo.accelerationStructure = s_Data->TopLevelAccelerationStructure.handle;
-		s_Data->TopLevelAccelerationStructure.deviceAddress = Core::Context::_device->getAccelerationStructureAddressKHR(accelerationDeviceAddressInfo);
+		s_Data->TopLevelAccelerationStructure.deviceAddress = Core::Context::Get()->GetDevice()->getAccelerationStructureAddressKHR(accelerationDeviceAddressInfo);
 
 		// Create a small scratch buffer used during build of the top level acceleration structure
 		Core::ScratchBuffer scratchBuffer = Core::createScratchBuffer(accelerationStructureBuildSizesInfo.buildScratchSize);
@@ -394,9 +241,9 @@ namespace Example
 		// Some implementations may support acceleration structure building on the host (VkPhysicalDeviceAccelerationStructureFeaturesKHR->accelerationStructureHostCommands), but we prefer device builds
 		vk::CommandBufferAllocateInfo CMDallocInfo{};
 		CMDallocInfo.level = vk::CommandBufferLevel::ePrimary;
-		CMDallocInfo.commandPool = Core::Context::_graphicsCommandPool;
+		CMDallocInfo.commandPool = Core::Context::Get()->GetGraphicsCommandPool();
 		CMDallocInfo.commandBufferCount = 1;
-		vk::CommandBuffer commandBuffer = Core::Context::_device->allocateCommandBuffers(CMDallocInfo)[0];
+		vk::CommandBuffer commandBuffer = Core::Context::Get()->GetDevice()->allocateCommandBuffers(CMDallocInfo)[0];
 		vk::CommandBufferBeginInfo beg{};
 		beg.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
 		commandBuffer.begin(beg);
@@ -409,17 +256,17 @@ namespace Example
 		submitInfo.pCommandBuffers = &commandBuffer;
 		// Create fence to ensure that the command buffer has finished executing
 		vk::FenceCreateInfo fenceInfo{};
-		vk::Fence fence = Core::Context::_device->createFence(fenceInfo);
+		vk::Fence fence = Core::Context::Get()->GetDevice()->createFence(fenceInfo);
 		// Submit to the queue
-		Core::Context::_graphicsQueue.submit(submitInfo, fence);
+		Core::Context::Get()->GetGraphicsQueue().submit(submitInfo, fence);
 		// Wait for the fence to signal that command buffer has finished executing
-		Core::Context::_device->waitForFences(fence, true, UINT64_MAX);
-		Core::Context::_device->destroyFence(fence);
-		Core::Context::_device->freeCommandBuffers(Core::Context::_graphicsCommandPool, commandBuffer);
+		Core::Context::Get()->GetDevice()->waitForFences(fence, true, UINT64_MAX);
+		Core::Context::Get()->GetDevice()->destroyFence(fence);
+		Core::Context::Get()->GetDevice()->freeCommandBuffers(Core::Context::Get()->GetGraphicsCommandPool(), commandBuffer);
 
 		Core::deleteScratchBuffer(scratchBuffer);
-		Core::Context::_device->destroyBuffer(instancesBuffer);
-		Core::Context::_device->freeMemory(instancesBufferMemory);
+		Core::Context::Get()->GetDevice()->destroyBuffer(instancesBuffer);
+		Core::Context::Get()->GetDevice()->freeMemory(instancesBufferMemory);
 		//if (Upadete)
 		//{
 		//	vk::WriteDescriptorSetAccelerationStructureKHR writev2;
@@ -435,7 +282,7 @@ namespace Example
 		//	write.descriptorCount = 1;
 		//	write.pNext = &writev2;
 		//
-		//	Core::Context::_device->updateDescriptorSets(write, nullptr);
+		//	Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 		//}
 	}
 
@@ -497,24 +344,24 @@ namespace Example
 		ibufferinfo.usage = vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR;
 		ibufferinfo.size = 4096 * sizeof(vk::AccelerationStructureInstanceKHR);
 		ibufferinfo.sharingMode = vk::SharingMode::eExclusive;
-		vk::Buffer instancesBuffer = Core::Context::_device->createBuffer(ibufferinfo);
+		vk::Buffer instancesBuffer = Core::Context::Get()->GetDevice()->createBuffer(ibufferinfo);
 
 		vk::DeviceMemory instancesBufferMemory;
 
-		Core::Context::allocateBufferMemory(instancesBuffer, instancesBufferMemory, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, vk::MemoryAllocateFlagBits::eDeviceAddress);
+		Core::Context::Get()->allocateBufferMemory(instancesBuffer, instancesBufferMemory, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, vk::MemoryAllocateFlagBits::eDeviceAddress);
 
-		void* imemlocation = Core::Context::_device->mapMemory(instancesBufferMemory, 0, sizeof(VkAccelerationStructureInstanceKHR));
+		void* imemlocation = Core::Context::Get()->GetDevice()->mapMemory(instancesBufferMemory, 0, sizeof(VkAccelerationStructureInstanceKHR));
 		memcpy(imemlocation, instances.data(), instances.size() * sizeof(vk::AccelerationStructureInstanceKHR));
-		Core::Context::_device->unmapMemory(instancesBufferMemory);
+		Core::Context::Get()->GetDevice()->unmapMemory(instancesBufferMemory);
 
 		vk::BufferDeviceAddressInfo info1;
 		info1.buffer = instancesBuffer;
 
 		vk::CommandBufferAllocateInfo CMDallocateInfo{};
 		CMDallocateInfo.level = vk::CommandBufferLevel::ePrimary;
-		CMDallocateInfo.commandPool = Core::Context::_graphicsCommandPool;
+		CMDallocateInfo.commandPool = Core::Context::Get()->GetGraphicsCommandPool();
 		CMDallocateInfo.commandBufferCount = 1;
-		vk::CommandBuffer commandBufferUpadate = Core::Context::_device->allocateCommandBuffers(CMDallocateInfo)[0];
+		vk::CommandBuffer commandBufferUpadate = Core::Context::Get()->GetDevice()->allocateCommandBuffers(CMDallocateInfo)[0];
 		vk::CommandBufferBeginInfo beg{};
 		beg.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
 		commandBufferUpadate.begin(beg);
@@ -525,7 +372,7 @@ namespace Example
 		commandBufferUpadate.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eAccelerationStructureBuildKHR, vk::DependencyFlags(), barrier, nullptr, nullptr);
 
 		vk::DeviceOrHostAddressConstKHR instanceDataDeviceAddress;
-		instanceDataDeviceAddress.deviceAddress = Core::Context::_device->getBufferAddressKHR(info1);
+		instanceDataDeviceAddress.deviceAddress = Core::Context::Get()->GetDevice()->getBufferAddressKHR(info1);
 
 		vk::AccelerationStructureGeometryKHR accelerationStructureGeometry{};
 		accelerationStructureGeometry.geometryType = vk::GeometryTypeKHR::eInstances;
@@ -546,7 +393,7 @@ namespace Example
 		uint32_t primitive_count = 1;
 
 		vk::AccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{};
-		Core::Context::_device->getAccelerationStructureBuildSizesKHR(vk::AccelerationStructureBuildTypeKHR::eDevice, &accelerationStructureBuildGeometryInfo, &primitive_count, &accelerationStructureBuildSizesInfo);
+		Core::Context::Get()->GetDevice()->getAccelerationStructureBuildSizesKHR(vk::AccelerationStructureBuildTypeKHR::eDevice, &accelerationStructureBuildGeometryInfo, &primitive_count, &accelerationStructureBuildSizesInfo);
 		// Acceleration structure
 
 		// AS device address
@@ -572,13 +419,13 @@ namespace Example
 		subInfo.sType = vk::StructureType::eSubmitInfo;
 		subInfo.commandBufferCount = 1;
 		subInfo.pCommandBuffers = &commandBufferUpadate;
-		Core::Context::_graphicsQueue.submit(subInfo);
-		Core::Context::_device->waitIdle();
-		Core::Context::_device->freeCommandBuffers(Core::Context::_graphicsCommandPool, commandBufferUpadate);
+		Core::Context::Get()->GetGraphicsQueue().submit(subInfo);
+		Core::Context::Get()->GetDevice()->waitIdle();
+		Core::Context::Get()->GetDevice()->freeCommandBuffers(Core::Context::Get()->GetGraphicsCommandPool(), commandBufferUpadate);
 
 		Core::deleteScratchBuffer(scratchBuffer);
-		Core::Context::_device->destroyBuffer(instancesBuffer);
-		Core::Context::_device->freeMemory(instancesBufferMemory);
+		Core::Context::Get()->GetDevice()->destroyBuffer(instancesBuffer);
+		Core::Context::Get()->GetDevice()->freeMemory(instancesBufferMemory);
 	}
 
 	static void CreateDescriptorSets()
@@ -594,14 +441,14 @@ namespace Example
 		TopLevelAccelerationStructureLayoutCreateInfo.bindingCount = 1;
 		TopLevelAccelerationStructureLayoutCreateInfo.pBindings = &TopLevelAccelerationStructureBinding;
 
-		s_Data->RT_SetLayout = Core::Context::_device->createDescriptorSetLayout(TopLevelAccelerationStructureLayoutCreateInfo);
+		s_Data->RT_SetLayout = Core::Context::Get()->GetDevice()->createDescriptorSetLayout(TopLevelAccelerationStructureLayoutCreateInfo);
 
 		vk::DescriptorSetAllocateInfo allocInfo;
-		allocInfo.descriptorPool = Core::Context::_descriptorPool;
+		allocInfo.descriptorPool = Core::Context::Get()->GetDescriptorPool();
 		allocInfo.descriptorSetCount = 1;
 		allocInfo.pSetLayouts = &s_Data->RT_SetLayout;
 
-		s_Data->Rt_Set = Core::Context::_device->allocateDescriptorSets(allocInfo)[0];
+		s_Data->Rt_Set = Core::Context::Get()->GetDevice()->allocateDescriptorSets(allocInfo)[0];
 
 		vk::WriteDescriptorSetAccelerationStructureKHR descriptorAccelerationStructureInfo{};
 		descriptorAccelerationStructureInfo.accelerationStructureCount = 1;
@@ -625,7 +472,7 @@ namespace Example
 		write[1].descriptorType = vk::DescriptorType::eStorageImage;
 		write[1].descriptorCount = 1;
 
-		Core::Context::_device->updateDescriptorSets(write, nullptr);
+		Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 	}
 
 	static void CreateCameraUniformBuffer()
@@ -636,12 +483,12 @@ namespace Example
 	static void Create()
 	{
 		Data::DepthAttachment dAttachment;
-		for (int i = 0; i < Core::Context::_swapchain.swapchainImageViews.size(); ++i)
+		for (int i = 0; i < Core::Context::Get()->GetSwapchain().swapchainImageViews.size(); ++i)
 		{
 			vk::ImageCreateInfo imageInfo;
 			imageInfo.imageType = vk::ImageType::e2D;
-			imageInfo.extent.width = Core::Context::_swapchain.swapchainWidth;
-			imageInfo.extent.height = Core::Context::_swapchain.swapchainHeight;
+			imageInfo.extent.width = Core::Context::Get()->GetSwapchain().swapchainWidth;
+			imageInfo.extent.height = Core::Context::Get()->GetSwapchain().swapchainHeight;
 			imageInfo.extent.depth = 1;
 			imageInfo.mipLevels = 1;
 			imageInfo.arrayLayers = 1;
@@ -652,14 +499,14 @@ namespace Example
 			imageInfo.sharingMode = vk::SharingMode::eExclusive;
 			imageInfo.samples = vk::SampleCountFlagBits::e1;
 
-			dAttachment.image = Core::Context::_device->createImage(imageInfo);
-			dAttachment.MemRequs = Core::Context::_device->getImageMemoryRequirements(dAttachment.image);
+			dAttachment.image = Core::Context::Get()->GetDevice()->createImage(imageInfo);
+			dAttachment.MemRequs = Core::Context::Get()->GetDevice()->getImageMemoryRequirements(dAttachment.image);
 			vk::MemoryAllocateInfo memAlloc;
 			memAlloc.sType = vk::StructureType::eMemoryAllocateInfo;
 			memAlloc.allocationSize = dAttachment.MemRequs.size;
-			memAlloc.memoryTypeIndex = Core::Context::findMemoryType(dAttachment.MemRequs.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);		//FIX
-			dAttachment.Memory = Core::Context::_device->allocateMemory(memAlloc);
-			Core::Context::_device->bindImageMemory(dAttachment.image, dAttachment.Memory, 0);
+			memAlloc.memoryTypeIndex = Core::Context::Get()->findMemoryType(dAttachment.MemRequs.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);		//FIX
+			dAttachment.Memory = Core::Context::Get()->GetDevice()->allocateMemory(memAlloc);
+			Core::Context::Get()->GetDevice()->bindImageMemory(dAttachment.image, dAttachment.Memory, 0);
 
 			vk::ImageViewCreateInfo viewInfo;
 			viewInfo.viewType = vk::ImageViewType::e2D;
@@ -670,7 +517,7 @@ namespace Example
 			viewInfo.subresourceRange.baseArrayLayer = 0;
 			viewInfo.subresourceRange.layerCount = 1;
 			viewInfo.image = dAttachment.image;
-			dAttachment.view = Core::Context::_device->createImageView(viewInfo);
+			dAttachment.view = Core::Context::Get()->GetDevice()->createImageView(viewInfo);
 			
 			s_Data->depth_attachment.push_back(dAttachment);
 		}
@@ -707,14 +554,14 @@ namespace Example
 		vk::Viewport viewport = {};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
-		viewport.width = (float)Core::Context::_swapchain.extent.width;
-		viewport.height = (float)Core::Context::_swapchain.extent.height;
+		viewport.width = (float)Core::Context::Get()->GetSwapchain().extent.width;
+		viewport.height = (float)Core::Context::Get()->GetSwapchain().extent.height;
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
 		vk::Rect2D scissor = {};
 		scissor.offset.x = 0.0f;
 		scissor.offset.y = 0.0f;
-		scissor.extent = Core::Context::_swapchain.extent;
+		scissor.extent = Core::Context::Get()->GetSwapchain().extent;
 		vk::PipelineViewportStateCreateInfo viewportState{};
 		viewportState.flags = vk::PipelineViewportStateCreateFlags();
 		viewportState.viewportCount = 1;
@@ -788,7 +635,7 @@ namespace Example
 		layoutInfo.pushConstantRangeCount = 1;
 		layoutInfo.pPushConstantRanges = &range;
 
-		s_Data->pipelineLayout = Core::Context::_device->createPipelineLayout(layoutInfo);
+		s_Data->pipelineLayout = Core::Context::Get()->GetDevice()->createPipelineLayout(layoutInfo);
 
 
 		//Renderpass
@@ -843,7 +690,7 @@ namespace Example
 		renderpassInfo.pAttachments = attachments.data();
 		renderpassInfo.subpassCount = 1;
 		renderpassInfo.pSubpasses = &subpass;
-		s_Data->renderpass = Core::Context::_device->createRenderPass(renderpassInfo);
+		s_Data->renderpass = Core::Context::Get()->GetDevice()->createRenderPass(renderpassInfo);
 
 
 		//Extra stuff
@@ -868,29 +715,29 @@ namespace Example
 		pipelineInfo.subpass = 0;
 		pipelineInfo.basePipelineHandle = nullptr;
 
-		s_Data->graphicsPipeline = Core::Context::_device->createGraphicsPipeline(nullptr, pipelineInfo).value;
+		s_Data->graphicsPipeline = Core::Context::Get()->GetDevice()->createGraphicsPipeline(nullptr, pipelineInfo).value;
 
-		Core::Context::_device->destroyShaderModule(vertexShader);
-		Core::Context::_device->destroyShaderModule(fragmentShader);
+		Core::Context::Get()->GetDevice()->destroyShaderModule(vertexShader);
+		Core::Context::Get()->GetDevice()->destroyShaderModule(fragmentShader);
 
-		for (int i = 0; i < Core::Context::_swapchain.swapchainImageViews.size(); ++i) {
+		for (int i = 0; i < Core::Context::Get()->GetSwapchain().swapchainImageViews.size(); ++i) {
 
-			std::vector<vk::ImageView> attchs = { Core::Context::_swapchain.swapchainImageViews[i], s_Data->depth_attachment[i].view };
+			std::vector<vk::ImageView> attchs = { Core::Context::Get()->GetSwapchain().swapchainImageViews[i], s_Data->depth_attachment[i].view };
 			vk::FramebufferCreateInfo framebufferInfo;
 			framebufferInfo.flags = vk::FramebufferCreateFlags();
 			framebufferInfo.renderPass = s_Data->renderpass;
 			framebufferInfo.attachmentCount = attchs.size();
 			framebufferInfo.pAttachments = attchs.data();
-			framebufferInfo.width = Core::Context::_swapchain.extent.width;
-			framebufferInfo.height = Core::Context::_swapchain.extent.height;
+			framebufferInfo.width = Core::Context::Get()->GetSwapchain().extent.width;
+			framebufferInfo.height = Core::Context::Get()->GetSwapchain().extent.height;
 			framebufferInfo.layers = 1;
-			s_Data->framebuffers.push_back(Core::Context::_device->createFramebuffer(framebufferInfo));
+			s_Data->framebuffers.push_back(Core::Context::Get()->GetDevice()->createFramebuffer(framebufferInfo));
 		}
 		vk::CommandBufferAllocateInfo allocInfo{};
-		allocInfo.commandPool = Core::Context::_graphicsCommandPool;
+		allocInfo.commandPool = Core::Context::Get()->GetGraphicsCommandPool();
 		allocInfo.level = vk::CommandBufferLevel::ePrimary;
 		allocInfo.commandBufferCount = s_Data->framebuffers.size();
-		s_Data->cmd = Core::Context::_device->allocateCommandBuffers(allocInfo);
+		s_Data->cmd = Core::Context::Get()->GetDevice()->allocateCommandBuffers(allocInfo);
 	}
 
 	RayTracing::RayTracing()
@@ -900,10 +747,9 @@ namespace Example
 		s_Data->plane = std::make_shared<Model>("res/Plane.gltf");
 
 		CreateTopLevelAccelerationStructure(HML::Mat4x4<float>(1.0f), HML::Mat4x4<float>(1.0f));
-		CreateStorageImage(vk::Format::eB8G8R8A8Unorm);
 
-		s_Data->cam = std::make_shared<Camera>(HML::Radians(45.0f), float(Core::Context::_swapchain.extent.width) 
-			/ float(Core::Context::_swapchain.extent.height), 0.1f, 1000.0f);
+		s_Data->cam = std::make_shared<Camera>(HML::Radians(45.0f), float(Core::Context::Get()->GetSwapchain().extent.width)
+			/ float(Core::Context::Get()->GetSwapchain().extent.height), 0.1f, 1000.0f);
 
 		vk::DescriptorSetLayoutBinding binding;
 		binding.binding = 0;
@@ -928,15 +774,15 @@ namespace Example
 		layoutinfo.bindingCount = bindings.size();
 		layoutinfo.pBindings = bindings.data();
 
-		s_Data->CamDescriptorSetLayout = Core::Context::_device->createDescriptorSetLayout(layoutinfo);
+		s_Data->CamDescriptorSetLayout = Core::Context::Get()->GetDevice()->createDescriptorSetLayout(layoutinfo);
 
 		vk::DescriptorSetAllocateInfo info;
 		info.sType = vk::StructureType::eDescriptorSetAllocateInfo;
-		info.descriptorPool = Core::Context::_descriptorPool;
+		info.descriptorPool = Core::Context::Get()->GetDescriptorPool();
 		info.descriptorSetCount = 1;
 		info.pSetLayouts = &s_Data->CamDescriptorSetLayout;
 
-		s_Data->CamDescriptorSet = Core::Context::_device->allocateDescriptorSets(info).front();
+		s_Data->CamDescriptorSet = Core::Context::Get()->GetDevice()->allocateDescriptorSets(info).front();
 
 		vk::DescriptorBufferInfo bufferinfo;
 		bufferinfo.buffer = s_Data->cam->m_CameraUniformBuffer.buffer;
@@ -950,7 +796,7 @@ namespace Example
 		write.pBufferInfo = &bufferinfo;
 		write.descriptorCount = 1;
 
-		Core::Context::_device->updateDescriptorSets(write, nullptr);
+		Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 
 		vk::WriteDescriptorSetAccelerationStructureKHR writev2;
 		writev2.accelerationStructureCount = 1;
@@ -964,7 +810,7 @@ namespace Example
 		write.descriptorCount = 1;
 		write.pNext = &writev2;
 
-		Core::Context::_device->updateDescriptorSets(write, nullptr);
+		Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 		//CreateDescriptorSets();
 
 
@@ -1034,14 +880,14 @@ namespace Example
 
 		vk::CommandBufferBeginInfo beginInfo{};
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].begin(beginInfo);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].begin(beginInfo);
 
 		vk::RenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.renderPass = s_Data->renderpass;
-		renderPassInfo.framebuffer = s_Data->framebuffers[Core::Context::_swapchain.currentFrame];
+		renderPassInfo.framebuffer = s_Data->framebuffers[Core::Context::Get()->GetSwapchain().currentFrame];
 		renderPassInfo.renderArea.offset.x = 0;
 		renderPassInfo.renderArea.offset.y = 0;
-		renderPassInfo.renderArea.extent = Core::Context::_swapchain.extent;
+		renderPassInfo.renderArea.extent = Core::Context::Get()->GetSwapchain().extent;
 
 		vk::ClearValue clearColor{ std::array<float, 4>{0.2f, 0.5f, 0.7f, 1.0f} };
 		vk::ClearValue clearDepth;
@@ -1050,40 +896,40 @@ namespace Example
 		renderPassInfo.clearValueCount = values.size();
 		renderPassInfo.pClearValues = values.data();
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].bindPipeline(vk::PipelineBindPoint::eGraphics, s_Data->graphicsPipeline);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].bindPipeline(vk::PipelineBindPoint::eGraphics, s_Data->graphicsPipeline);
 
 		std::array<vk::DescriptorSet, 1> sets = { s_Data->CamDescriptorSet };
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, s_Data->pipelineLayout, 0, sets, {  });
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, s_Data->pipelineLayout, 0, sets, {  });
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].pushConstants(s_Data->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Data::Constant), &s_Data->pushConstant);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].pushConstants(s_Data->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Data::Constant), &s_Data->pushConstant);
 		
-		s_Data->bunny->DrawModel(s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage]);
+		s_Data->bunny->DrawModel(s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage]);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].pushConstants(s_Data->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Data::Constant), &temp);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].pushConstants(s_Data->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Data::Constant), &temp);
 		
-		s_Data->plane->DrawModel(s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage]);
+		s_Data->plane->DrawModel(s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage]);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].endRenderPass();
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].endRenderPass();
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].end();
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].end();
 
 		vk::SubmitInfo submit_info{};
 		submit_info.sType = vk::StructureType::eSubmitInfo;
 		vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 		submit_info.pWaitDstStageMask = &waitStage;
 		submit_info.waitSemaphoreCount = 1;
-		submit_info.pWaitSemaphores = &Core::Context::imageAvailableSemaphores[Core::Context::_swapchain.currentFrame];
+		submit_info.pWaitSemaphores = &Core::Context::Get()->GetImageAvailableSemaphore();
 		submit_info.signalSemaphoreCount = 1;
-		submit_info.pSignalSemaphores = &Core::Context::renderFinishedSemaphores[Core::Context::_swapchain.currentFrame];;
+		submit_info.pSignalSemaphores = &Core::Context::Get()->GetRenderFinishedSemaphore();
 		submit_info.commandBufferCount = 1;
-		submit_info.pCommandBuffers = &s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage];
+		submit_info.pCommandBuffers = &s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage];
 
-		Core::Context::_device->resetFences(Core::Context::inFlightFences[Core::Context::_swapchain.currentFrame]);
+		Core::Context::Get()->GetDevice()->resetFences(Core::Context::Get()->GetInFlightFence());
 
-		Core::Context::_graphicsQueue.submit(submit_info, Core::Context::inFlightFences[Core::Context::_swapchain.currentFrame]);
+		Core::Context::Get()->GetGraphicsQueue().submit(submit_info, Core::Context::Get()->GetInFlightFence());
 	}
 
 	void RayTracing::Shutdown()
@@ -1091,29 +937,29 @@ namespace Example
 		s_Data->cam->Destroy();
 		s_Data->bunny->Destroy();
 		s_Data->plane->Destroy();
-		Core::Context::_device->destroyDescriptorSetLayout(s_Data->CamDescriptorSetLayout);
-		Core::Context::_device->freeDescriptorSets(Core::Context::_descriptorPool, s_Data->CamDescriptorSet);
+		Core::Context::Get()->GetDevice()->destroyDescriptorSetLayout(s_Data->CamDescriptorSetLayout);
+		Core::Context::Get()->GetDevice()->freeDescriptorSets(Core::Context::Get()->GetDescriptorPool(), s_Data->CamDescriptorSet);
 		Destroy();
 		delete s_Data;
 	}
 
 	void RayTracing::Destroy()
 	{
-		Core::Context::_device->destroyPipelineLayout(s_Data->pipelineLayout);
-		Core::Context::_device->destroyPipeline(s_Data->graphicsPipeline);
+		Core::Context::Get()->GetDevice()->destroyPipelineLayout(s_Data->pipelineLayout);
+		Core::Context::Get()->GetDevice()->destroyPipeline(s_Data->graphicsPipeline);
 		for (auto framebuffer : s_Data->framebuffers)
-			Core::Context::_device->destroyFramebuffer(framebuffer);
+			Core::Context::Get()->GetDevice()->destroyFramebuffer(framebuffer);
 		s_Data->framebuffers.clear();
 		for (auto attachment : s_Data->depth_attachment)
 		{
-			Core::Context::_device->destroyImageView(attachment.view);
-			Core::Context::_device->freeMemory(attachment.Memory);
-			Core::Context::_device->destroyImage(attachment.image);
+			Core::Context::Get()->GetDevice()->destroyImageView(attachment.view);
+			Core::Context::Get()->GetDevice()->freeMemory(attachment.Memory);
+			Core::Context::Get()->GetDevice()->destroyImage(attachment.image);
 		}
 		s_Data->depth_attachment.clear();
-		Core::Context::_device->freeCommandBuffers(Core::Context::_graphicsCommandPool, s_Data->cmd);
+		Core::Context::Get()->GetDevice()->freeCommandBuffers(Core::Context::Get()->GetGraphicsCommandPool(), s_Data->cmd);
 		s_Data->cmd.clear();
-		Core::Context::_device->destroyRenderPass(s_Data->renderpass);
+		Core::Context::Get()->GetDevice()->destroyRenderPass(s_Data->renderpass);
 	}
 
 	void RayTracing::Recreate()

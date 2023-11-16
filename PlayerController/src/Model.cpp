@@ -101,10 +101,10 @@ namespace Example
 	{
 		for (auto& mesh : m_meshes)
 		{
-			Core::Context::_device->freeMemory(mesh.m_vertexBufferMemory);
-			Core::Context::_device->freeMemory(mesh.m_indexBufferMemory);
-			Core::Context::_device->destroyBuffer(mesh.m_vertexBuffer);
-			Core::Context::_device->destroyBuffer(mesh.m_indexBuffer);
+			Core::Context::Get()->GetDevice()->freeMemory(mesh.m_vertexBufferMemory);
+			Core::Context::Get()->GetDevice()->freeMemory(mesh.m_indexBufferMemory);
+			Core::Context::Get()->GetDevice()->destroyBuffer(mesh.m_vertexBuffer);
+			Core::Context::Get()->GetDevice()->destroyBuffer(mesh.m_indexBuffer);
 			mesh.m_verts.clear();
 			mesh.m_indicies.clear();
 		}
@@ -136,25 +136,25 @@ namespace Example
 		vbufferinfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
 		vbufferinfo.size = m_verts.size() * sizeof(Vertex);
 		vbufferinfo.sharingMode = vk::SharingMode::eExclusive;
-		m_vertexBuffer = Core::Context::_device->createBuffer(vbufferinfo);
+		m_vertexBuffer = Core::Context::Get()->GetDevice()->createBuffer(vbufferinfo);
 
-		Core::Context::allocateBufferMemory(m_vertexBuffer, m_vertexBufferMemory);
+		Core::Context::Get()->allocateBufferMemory(m_vertexBuffer, m_vertexBufferMemory);
 
-		void* vmemlocation = Core::Context::_device->mapMemory(m_vertexBufferMemory, 0, m_verts.size() * sizeof(Vertex));
+		void* vmemlocation = Core::Context::Get()->GetDevice()->mapMemory(m_vertexBufferMemory, 0, m_verts.size() * sizeof(Vertex));
 		memcpy(vmemlocation, m_verts.data(), m_verts.size() * sizeof(Vertex));
-		Core::Context::_device->unmapMemory(m_vertexBufferMemory);
+		Core::Context::Get()->GetDevice()->unmapMemory(m_vertexBufferMemory);
 
 		vk::BufferCreateInfo ibufferinfo{};
 		ibufferinfo.flags = vk::BufferCreateFlags();
 		ibufferinfo.usage = vk::BufferUsageFlagBits::eIndexBuffer;
 		ibufferinfo.size = m_indicies.size() * sizeof(uint32_t);
 		vbufferinfo.sharingMode = vk::SharingMode::eExclusive;
-		m_indexBuffer = Core::Context::_device->createBuffer(ibufferinfo);
+		m_indexBuffer = Core::Context::Get()->GetDevice()->createBuffer(ibufferinfo);
 
-		Core::Context::allocateBufferMemory(m_indexBuffer, m_indexBufferMemory);
+		Core::Context::Get()->allocateBufferMemory(m_indexBuffer, m_indexBufferMemory);
 
-		void* imemlocation = Core::Context::_device->mapMemory(m_indexBufferMemory, 0, m_indicies.size() * sizeof(uint32_t));
+		void* imemlocation = Core::Context::Get()->GetDevice()->mapMemory(m_indexBufferMemory, 0, m_indicies.size() * sizeof(uint32_t));
 		memcpy(imemlocation, m_indicies.data(), m_indicies.size() * sizeof(uint32_t));
-		Core::Context::_device->unmapMemory(m_indexBufferMemory);
+		Core::Context::Get()->GetDevice()->unmapMemory(m_indexBufferMemory);
 	}
 }

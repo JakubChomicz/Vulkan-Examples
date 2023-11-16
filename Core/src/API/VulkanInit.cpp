@@ -7,28 +7,7 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 namespace Core
 {
-	vk::UniqueInstance Context::_instance;
-	vk::DispatchLoaderDynamic Context::_dispatcher;
-	vk::UniqueHandle<vk::DebugUtilsMessengerEXT, vk::DispatchLoaderDynamic> Context::_debugMessenger;
-	vk::UniqueSurfaceKHR Context::_surface;
-	vk::PhysicalDevice Context::_GPU;
-	vk::UniqueDevice Context::_device;
-	vk::Queue Context::_graphicsQueue;
-	vk::Queue Context::_transferQueue;
-	vk::Queue Context::_computeQueue;
-	vk::CommandPool Context::_graphicsCommandPool;
-	vk::CommandPool Context::_transferCommandPool;
-	vk::CommandPool Context::_computeCommandPool;
-	vk::DescriptorPool Context::_descriptorPool;
-	std::vector<const char*> Context::_layers;
-	std::vector<const char*> Context::_instanceExtensions;
-	std::vector<const char*> Context::_deviceExtensions;
-	QueueFamilyIndices Context::_queueFamilyIndices;
-	Swapchain Context::_swapchain;
-	std::vector<vk::Semaphore>			Context::imageAvailableSemaphores;
-	std::vector<vk::Semaphore>			Context::renderFinishedSemaphores;
-	std::vector<vk::Fence>				Context::inFlightFences;
-	std::vector<vk::Fence>				Context::imagesInFlight;
+	std::unique_ptr<Context> Context::s_Context;
 #ifdef M_DEBUG
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugMessegerCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -41,7 +20,7 @@ namespace Core
 	}
 #endif
 	uint32_t Context::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) {
-		auto memProperties = _GPU.getMemoryProperties();
+		auto memProperties = m_GPU.getMemoryProperties();
 
 		for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i) {
 			if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
@@ -55,7 +34,7 @@ namespace Core
 	}
 	void Context::allocateBufferMemory(vk::Buffer& buffer, vk::DeviceMemory& mem, vk::MemoryPropertyFlags flags, vk::MemoryAllocateFlags allocateFlags)
 	{
-		vk::MemoryRequirements memoryRequirements = Core::Context::_device->getBufferMemoryRequirements(buffer);
+		vk::MemoryRequirements memoryRequirements = Core::Context::m_Device->getBufferMemoryRequirements(buffer);
 		vk::MemoryAllocateInfo allocInfo;
 		allocInfo.allocationSize = memoryRequirements.size;
 		allocInfo.memoryTypeIndex = Core::Context::findMemoryType(memoryRequirements.memoryTypeBits,
@@ -68,10 +47,10 @@ namespace Core
 			allocInfo.pNext = &flagsInfo;
 		}
 
-		mem = Core::Context::_device->allocateMemory(allocInfo);
-		Core::Context::_device->bindBufferMemory(buffer, mem, 0);
+		mem = Core::Context::m_Device->allocateMemory(allocInfo);
+		Core::Context::m_Device->bindBufferMemory(buffer, mem, 0);
 	}
-	void Context::Init()
+	Context::Context()
 	{
 		vk::DynamicLoader dl;
 		PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
@@ -80,7 +59,7 @@ namespace Core
 		uint32_t glfwExtensionsCount = 0;
 		auto glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionsCount);
 		std::vector extensions(glfwExtensions, glfwExtensions + glfwExtensionsCount);
-		_instanceExtensions = extensions;
+		m_InstanceExtensions = extensions;
 		//Instance
 		{
 #ifdef M_DEBUG
@@ -98,14 +77,14 @@ namespace Core
 			vk::InstanceCreateInfo instanceInfo;
 			instanceInfo.sType = vk::StructureType::eInstanceCreateInfo;
 			instanceInfo.flags = vk::InstanceCreateFlags();
-			instanceInfo.enabledLayerCount = static_cast<uint32_t>(_layers.size());
-			instanceInfo.ppEnabledLayerNames = _layers.data();
-			instanceInfo.enabledExtensionCount = static_cast<uint32_t>(_instanceExtensions.size());
-			instanceInfo.ppEnabledExtensionNames = _instanceExtensions.data();
+			instanceInfo.enabledLayerCount = static_cast<uint32_t>(m_Layers.size());
+			instanceInfo.ppEnabledLayerNames = m_Layers.data();
+			instanceInfo.enabledExtensionCount = static_cast<uint32_t>(m_InstanceExtensions.size());
+			instanceInfo.ppEnabledExtensionNames = m_InstanceExtensions.data();
 			instanceInfo.pApplicationInfo = &appInfo;
 
-			_instance = vk::createInstanceUnique(instanceInfo);
-			VULKAN_HPP_DEFAULT_DISPATCHER.init(*_instance);
+			m_Instance = vk::createInstanceUnique(instanceInfo);
+			VULKAN_HPP_DEFAULT_DISPATCHER.init(*m_Instance);
 		}
 		//Debug Messenger
 		{
@@ -125,32 +104,41 @@ namespace Core
 #endif
 		}
 	}
-	void Context::Shutdown()
+	Context::~Context()
 	{
 		Context::DestroySwapchain();
-		_device->destroyCommandPool(_graphicsCommandPool);
-		_device->destroyCommandPool(_transferCommandPool);
-		_device->destroyCommandPool(_computeCommandPool);
-		_device->destroyDescriptorPool(_descriptorPool);
+		m_Device->destroyCommandPool(m_GraphicsCommandPool);
+		m_Device->destroyCommandPool(m_TransferCommandPool);
+		m_Device->destroyCommandPool(m_ComputeCommandPool);
+		m_Device->destroyDescriptorPool(m_DescriptorPool);
 		for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			Context::_device->destroySemaphore(imageAvailableSemaphores[i]);
-			Context::_device->destroySemaphore(renderFinishedSemaphores[i]);
-			Context::_device->destroyFence(inFlightFences[i]);
+			Context::m_Device->destroySemaphore(m_ImageAvailableSemaphores[i]);
+			Context::m_Device->destroySemaphore(m_RenderFinishedSemaphores[i]);
+			Context::m_Device->destroyFence(m_InFlightFences[i]);
 		}
+	}
+	void Context::Init()
+	{
+		s_Context = std::make_unique<Context>();
+	}
+	void Context::Shutdown()
+	{
+		s_Context.reset();
+		s_Context = nullptr;
 	}
 	void Context::SetWindowSurface(void* window)
 	{
 		VkSurfaceKHR raw;
-		glfwCreateWindowSurface(_instance.get(), (GLFWwindow*)window, nullptr, &raw);
-		vk::ObjectDestroy<vk::Instance, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE> _deleter(_instance.get());
-		_surface = vk::UniqueSurfaceKHR(vk::SurfaceKHR(raw), _deleter);
+		glfwCreateWindowSurface(m_Instance.get(), (GLFWwindow*)window, nullptr, &raw);
+		vk::ObjectDestroy<vk::Instance, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE> _deleter(m_Instance.get());
+		m_Surface = vk::UniqueSurfaceKHR(vk::SurfaceKHR(raw), _deleter);
 	}
 	void Context::InitDevice()
 	{
 		//GPU
 		{
-			std::vector<vk::PhysicalDevice> _avaibleGPUs = _instance->enumeratePhysicalDevices();
+			std::vector<vk::PhysicalDevice> _avaibleGPUs = m_Instance->enumeratePhysicalDevices();
 			std::cout << ("Enumerating GPUs...") << std::endl;
 			{
 				std::multimap<uint32_t, vk::PhysicalDevice> GPUsChooseable;
@@ -175,15 +163,15 @@ namespace Core
 
 					GPUsChooseable.insert(std::make_pair(score, gpu));
 				}
-				_GPU = GPUsChooseable.rbegin()->second;
+				m_GPU = GPUsChooseable.rbegin()->second;
 			}
-			 std::cout << "Selected GPU: " << _GPU.getProperties().deviceName << std::endl;
+			 std::cout << "Selected GPU: " << m_GPU.getProperties().deviceName << std::endl;
 			 std::cout << "Vulkan API Version " <<
-				VK_VERSION_MAJOR(_GPU.getProperties().apiVersion)  << "." <<
-				VK_VERSION_MINOR(_GPU.getProperties().apiVersion) << "." <<
-				VK_VERSION_PATCH(_GPU.getProperties().apiVersion) << std::endl;
-			std::cout << "Getting " << _GPU.getProperties().deviceName << " QueuesFamiliesIndexes:" << std::endl;
-			auto queueFamilyProps = _GPU.getQueueFamilyProperties();
+				VK_VERSION_MAJOR(m_GPU.getProperties().apiVersion)  << "." <<
+				VK_VERSION_MINOR(m_GPU.getProperties().apiVersion) << "." <<
+				VK_VERSION_PATCH(m_GPU.getProperties().apiVersion) << std::endl;
+			std::cout << "Getting " << m_GPU.getProperties().deviceName << " QueuesFamiliesIndexes:" << std::endl;
+			auto queueFamilyProps = m_GPU.getQueueFamilyProperties();
 			uint8_t min_transfer_score = 255;
 			for (uint32_t i = 0; i < static_cast<uint32_t>(queueFamilyProps.size()); ++i)
 			{
@@ -191,12 +179,12 @@ namespace Core
 
 				if (queueFamilyProps[i].queueFlags & vk::QueueFlagBits::eGraphics)
 				{
-					_queueFamilyIndices.graphicsFamily = i;
+					m_QueueFamilyIndices.graphicsFamily = i;
 					++current_transfer_score;
 				}
 				if (queueFamilyProps[i].queueFlags & vk::QueueFlagBits::eCompute)
 				{
-					_queueFamilyIndices.computeFamily = i;
+					m_QueueFamilyIndices.computeFamily = i;
 					++current_transfer_score;
 				}
 				if (queueFamilyProps[i].queueFlags & vk::QueueFlagBits::eTransfer)
@@ -204,57 +192,55 @@ namespace Core
 					if (current_transfer_score <= min_transfer_score)
 					{
 						min_transfer_score = current_transfer_score;
-						_queueFamilyIndices.transferFamily = i;
+						m_QueueFamilyIndices.transferFamily = i;
 					}
 				}
 			}
-			std::cout << "\tGraphics Queue Family Index: "  << _queueFamilyIndices.graphicsFamily	<< std::endl;
-			std::cout << "\tCompute Queue  Family Index: "  << _queueFamilyIndices.computeFamily	<< std::endl;
-			std::cout << "\tTransfer Queue  Family Index: " <<  _queueFamilyIndices.transferFamily	<< std::endl;
+			std::cout << "\tGraphics Queue Family Index: "  << m_QueueFamilyIndices.graphicsFamily	<< std::endl;
+			std::cout << "\tCompute Queue  Family Index: "  << m_QueueFamilyIndices.computeFamily	<< std::endl;
+			std::cout << "\tTransfer Queue  Family Index: " << m_QueueFamilyIndices.transferFamily	<< std::endl;
 
-			std::set<uint32_t> uniqueQueueFamilies = { _queueFamilyIndices.graphicsFamily,
-			_queueFamilyIndices.transferFamily,
-			_queueFamilyIndices.computeFamily };
-
-			_queueFamilyIndices.QueueFamilies = std::vector(uniqueQueueFamilies.begin(), uniqueQueueFamilies.end());
-
-			_queueFamilyIndices.graphicsQueueIndex = _queueFamilyIndices.graphicsFamily;
-			_queueFamilyIndices.transferQueueIndex = _queueFamilyIndices.transferFamily;
-			_queueFamilyIndices.computeQueueIndex = _queueFamilyIndices.computeFamily;
+			std::set<uint32_t> uniqueQueueFamilies = { m_QueueFamilyIndices.graphicsFamily,
+			m_QueueFamilyIndices.transferFamily,
+			m_QueueFamilyIndices.computeFamily };
+			m_QueueFamilyIndices.QueueFamilies = std::vector(uniqueQueueFamilies.begin(), uniqueQueueFamilies.end());
+			m_QueueFamilyIndices.graphicsQueueIndex = m_QueueFamilyIndices.graphicsFamily;
+			m_QueueFamilyIndices.transferQueueIndex = m_QueueFamilyIndices.transferFamily;
+			m_QueueFamilyIndices.computeQueueIndex = m_QueueFamilyIndices.computeFamily;
 		}
 		//Device
 		bool hasAccelerationStructureSupport = false;
 		{
 			vk::PhysicalDeviceFeatures2 features2{};
-			_deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-			auto extensions = _GPU.enumerateDeviceExtensionProperties();
+			m_DeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+			auto extensions = m_GPU.enumerateDeviceExtensionProperties();
 			for (auto ex : extensions)
 			{
 				std::string name = ex.extensionName.data();
 				if (name == VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)
 				{
-					_deviceExtensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+					m_DeviceExtensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
 				}
 				else if (name == VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME)
 				{
-					_deviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+					m_DeviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
 				}
 				else if (name == VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME)
 				{
-					_deviceExtensions.push_back(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
+					m_DeviceExtensions.push_back(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
 				}
 				else if (name == VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)
 				{
-					_deviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+					m_DeviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
 					hasAccelerationStructureSupport = true;
 				}
 				else if (name == VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
 				{
-					_deviceExtensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+					m_DeviceExtensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
 				}
 				else if (name == VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME)
 				{
-					_deviceExtensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+					m_DeviceExtensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
 				}
 			}
 			vk::PhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeature {};
@@ -271,25 +257,25 @@ namespace Core
 			rtPipelineFeature.pNext = &bufferDeviceAddressFeature;
 
 
-			_GPU.getFeatures2(&features2);
+			m_GPU.getFeatures2(&features2);
 
 			vk::PhysicalDeviceProperties2 prop2 {};
 			vk::PhysicalDeviceRayTracingPipelinePropertiesKHR m_rtProperties {};
 			prop2.pNext = &m_rtProperties;
-			_GPU.getProperties2(&prop2);
+			m_GPU.getProperties2(&prop2);
 
 			uint32_t index_count = 1;;
-			if (!_queueFamilyIndices.doesTransferShareGraphicsQueue())
+			if (!m_QueueFamilyIndices.doesTransferShareGraphicsQueue())
 				index_count++;
-			if (!_queueFamilyIndices.doesComputeShareGraphicsQueue())
+			if (!m_QueueFamilyIndices.doesComputeShareGraphicsQueue())
 				index_count++;
 			std::vector<uint32_t> indices(index_count);
 			uint8_t index = 0;
-			indices[index++] = _queueFamilyIndices.graphicsQueueIndex;
-			if (!_queueFamilyIndices.doesTransferShareGraphicsQueue())
-				indices[index++] = _queueFamilyIndices.transferQueueIndex;
-			if (!_queueFamilyIndices.doesComputeShareGraphicsQueue())
-				indices[index++] = _queueFamilyIndices.computeQueueIndex;
+			indices[index++] = m_QueueFamilyIndices.graphicsQueueIndex;
+			if (!m_QueueFamilyIndices.doesTransferShareGraphicsQueue())
+				indices[index++] = m_QueueFamilyIndices.transferQueueIndex;
+			if (!m_QueueFamilyIndices.doesComputeShareGraphicsQueue())
+				indices[index++] = m_QueueFamilyIndices.computeQueueIndex;
 
 			std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos(index_count);
 			for (uint32_t i = 0; i < index_count; ++i)
@@ -310,43 +296,43 @@ namespace Core
 			deviceInfo.sType = vk::StructureType::eDeviceCreateInfo;
 			deviceInfo.queueCreateInfoCount = index_count;
 			deviceInfo.pQueueCreateInfos = queueCreateInfos.data();
-			deviceInfo.enabledLayerCount = static_cast<uint32_t>(_layers.size());
-			deviceInfo.ppEnabledLayerNames = _layers.data();
-			deviceInfo.enabledExtensionCount = static_cast<uint32_t>(_deviceExtensions.size());
-			deviceInfo.ppEnabledExtensionNames = _deviceExtensions.data();
+			deviceInfo.enabledLayerCount = static_cast<uint32_t>(m_Layers.size());
+			deviceInfo.ppEnabledLayerNames = m_Layers.data();
+			deviceInfo.enabledExtensionCount = static_cast<uint32_t>(m_DeviceExtensions.size());
+			deviceInfo.ppEnabledExtensionNames = m_DeviceExtensions.data();
 			deviceInfo.pEnabledFeatures = nullptr;
 			deviceInfo.pNext = &features2;
 
-			_device = _GPU.createDeviceUnique(deviceInfo);
-			VULKAN_HPP_DEFAULT_DISPATCHER.init(*_device);
+			m_Device = m_GPU.createDeviceUnique(deviceInfo);
+			VULKAN_HPP_DEFAULT_DISPATCHER.init(*m_Device);
 
-			_graphicsQueue = _device->getQueue(_queueFamilyIndices.graphicsFamily, 0);
-			_transferQueue = _device->getQueue(_queueFamilyIndices.transferFamily, 0);
-			_computeQueue = _device->getQueue(_queueFamilyIndices.computeFamily, 0);
+			m_GraphicsQueue = m_Device->getQueue(m_QueueFamilyIndices.graphicsFamily, 0);
+			m_TransferQueue = m_Device->getQueue(m_QueueFamilyIndices.transferFamily, 0);
+			m_ComputeQueue = m_Device->getQueue(m_QueueFamilyIndices.computeFamily, 0);
 		}
 		//GraphicsCommandPool
 		{
 			vk::CommandPoolCreateInfo commandPoolInfo;
 			commandPoolInfo.sType = vk::StructureType::eCommandPoolCreateInfo;
 			commandPoolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;		//Might need Fix
-			commandPoolInfo.queueFamilyIndex = _queueFamilyIndices.graphicsFamily;
-			_graphicsCommandPool = _device->createCommandPool(commandPoolInfo);
+			commandPoolInfo.queueFamilyIndex = m_QueueFamilyIndices.graphicsFamily;
+			m_GraphicsCommandPool = m_Device->createCommandPool(commandPoolInfo);
 		}
 		//TransferCommandPool
 		{
 			vk::CommandPoolCreateInfo commandPoolInfo;
 			commandPoolInfo.sType = vk::StructureType::eCommandPoolCreateInfo;
 			commandPoolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;		//Might need Fix
-			commandPoolInfo.queueFamilyIndex = _queueFamilyIndices.transferFamily;
-			_transferCommandPool = _device->createCommandPool(commandPoolInfo);
+			commandPoolInfo.queueFamilyIndex = m_QueueFamilyIndices.transferFamily;
+			m_TransferCommandPool = m_Device->createCommandPool(commandPoolInfo);
 		}
 		//TransferCommandPool
 		{
 			vk::CommandPoolCreateInfo commandPoolInfo;
 			commandPoolInfo.sType = vk::StructureType::eCommandPoolCreateInfo;
 			commandPoolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;		//Might need Fix
-			commandPoolInfo.queueFamilyIndex = _queueFamilyIndices.computeFamily;
-			_computeCommandPool = _device->createCommandPool(commandPoolInfo);
+			commandPoolInfo.queueFamilyIndex = m_QueueFamilyIndices.computeFamily;
+			m_ComputeCommandPool = m_Device->createCommandPool(commandPoolInfo);
 		}
 		//Descriptor Pool
 		{
@@ -372,11 +358,11 @@ namespace Core
 			pool_info.maxSets = 1000 * ((int)(sizeof(pool_sizes) / sizeof(pool_sizes.size() * sizeof(vk::DescriptorPoolSize))));
 			pool_info.poolSizeCount = (uint32_t)((int)(sizeof(pool_sizes) / sizeof(pool_sizes.size() * sizeof(vk::DescriptorPoolSize))));
 			pool_info.pPoolSizes = pool_sizes.data();
-			_descriptorPool = Context::_device->createDescriptorPool(pool_info);
+			m_DescriptorPool = Context::m_Device->createDescriptorPool(pool_info);
 		}
-		imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-		renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-		inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+		m_ImageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+		m_RenderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+		m_InFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
 		vk::SemaphoreCreateInfo semaphoreInfo{};
 		semaphoreInfo.sType = vk::StructureType::eSemaphoreCreateInfo;
@@ -385,33 +371,33 @@ namespace Core
 		renderFenceInfo.flags = vk::FenceCreateFlagBits::eSignaled;
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			imageAvailableSemaphores[i] = _device->createSemaphore(semaphoreInfo);
-			renderFinishedSemaphores[i] = _device->createSemaphore(semaphoreInfo);
-			inFlightFences[i] = _device->createFence(renderFenceInfo);
+			m_ImageAvailableSemaphores[i] = m_Device->createSemaphore(semaphoreInfo);
+			m_RenderFinishedSemaphores[i] = m_Device->createSemaphore(semaphoreInfo);
+			m_InFlightFences[i] = m_Device->createFence(renderFenceInfo);
 		}
 	}
 	////////////////////////////////////////////////////////////////////////////////////Objects-Creation///////////////////////////////////////////////////////////////////
 	void Context::CreateSwapchain(uint32_t width, uint32_t height)
 	{
-		Context::_swapchain.swapchainWidth = width;
-		Context::_swapchain.swapchainHeight = height;
-		Context::_swapchain.extent =
-			vk::Extent2D{ static_cast<uint32_t>(Context::_swapchain.swapchainWidth), static_cast<uint32_t>(Context::_swapchain.swapchainHeight) };
+		m_Swapchain.swapchainWidth = width;
+		m_Swapchain.swapchainHeight = height;
+		m_Swapchain.extent =
+			vk::Extent2D{ static_cast<uint32_t>(m_Swapchain.swapchainWidth), static_cast<uint32_t>(m_Swapchain.swapchainHeight) };
 
-		for (auto mode : Context::_GPU.getSurfacePresentModesKHR(Context::_surface.get()))
+		for (auto mode : m_GPU.getSurfacePresentModesKHR(m_Surface.get()))
 		{
 			if (mode == vk::PresentModeKHR::eFifo || mode == vk::PresentModeKHR::eMailbox)
-				Context::_swapchain.presentMode = mode;
+				m_Swapchain.presentMode = mode;
 			if (mode == vk::PresentModeKHR::eFifo)
 				break;
 		}
 		vk::SwapchainCreateInfoKHR swapchainInfo;
 		swapchainInfo.sType = vk::StructureType::eSwapchainCreateInfoKHR;
-		swapchainInfo.surface = *Context::_surface;
-		swapchainInfo.minImageCount = Context::_GPU.getSurfaceCapabilitiesKHR(*Context::_surface).minImageCount/* + 1*/;
+		swapchainInfo.surface = *m_Surface;
+		swapchainInfo.minImageCount = m_GPU.getSurfaceCapabilitiesKHR(*m_Surface).minImageCount/* + 1*/;
 		swapchainInfo.imageFormat = vk::Format::eB8G8R8A8Unorm;
 		swapchainInfo.imageColorSpace = vk::ColorSpaceKHR::eSrgbNonlinear;
-		swapchainInfo.imageExtent = Context::_swapchain.extent;
+		swapchainInfo.imageExtent = m_Swapchain.extent;
 		swapchainInfo.imageArrayLayers = 1;
 		swapchainInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
 		swapchainInfo.imageSharingMode = vk::SharingMode::eExclusive;
@@ -419,20 +405,20 @@ namespace Core
 		swapchainInfo.pQueueFamilyIndices = nullptr;
 		swapchainInfo.preTransform = vk::SurfaceTransformFlagBitsKHR::eIdentity;
 		swapchainInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
-		swapchainInfo.presentMode = Context::_swapchain.presentMode;
+		swapchainInfo.presentMode = m_Swapchain.presentMode;
 		swapchainInfo.clipped = true;
-		swapchainInfo.oldSwapchain = Context::_swapchain.oldswapchain;
+		swapchainInfo.oldSwapchain = m_Swapchain.oldswapchain;
 
-		Context::_swapchain.swapchain = Context::_device->createSwapchainKHR(swapchainInfo);
+		m_Swapchain.swapchain = m_Device->createSwapchainKHR(swapchainInfo);
 	}
 	void Context::CreateSwapchainImages()
 	{
-		Context::_swapchain.swapchainImages = Context::_device->getSwapchainImagesKHR(Context::_swapchain.swapchain);
-		Context::_swapchain.swapchainImageViews.resize(Context::_swapchain.swapchainImages.size());
-		for (size_t i = 0; i < Context::_swapchain.swapchainImages.size(); i++) {
+		m_Swapchain.swapchainImages = m_Device->getSwapchainImagesKHR(m_Swapchain.swapchain);
+		m_Swapchain.swapchainImageViews.resize(m_Swapchain.swapchainImages.size());
+		for (size_t i = 0; i < m_Swapchain.swapchainImages.size(); i++) {
 			vk::ImageViewCreateInfo imageViewInfo;
 			imageViewInfo.sType = vk::StructureType::eImageViewCreateInfo;
-			imageViewInfo.image = Context::_swapchain.swapchainImages[i];
+			imageViewInfo.image = m_Swapchain.swapchainImages[i];
 			imageViewInfo.viewType = vk::ImageViewType::e2D;
 			imageViewInfo.format = vk::Format::eB8G8R8A8Unorm;
 			imageViewInfo.components = vk::ComponentMapping{ vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA };
@@ -442,48 +428,48 @@ namespace Core
 			imageViewInfo.subresourceRange.baseArrayLayer = 0;
 			imageViewInfo.subresourceRange.layerCount = 1;
 
-			Context::_swapchain.swapchainImageViews[i] = Context::_device->createImageView(imageViewInfo);
+			m_Swapchain.swapchainImageViews[i] = m_Device->createImageView(imageViewInfo);
 		}
 	}
 	void Context::AcquireNextSwapchainImage()
 	{
-		Context::_device->waitForFences(Context::inFlightFences[Context::_swapchain.currentFrame], true, UINT64_MAX);
-		auto acquireResult = Context::_device->acquireNextImageKHR(Context::_swapchain.swapchain, UINT64_MAX, Context::imageAvailableSemaphores[Context::_swapchain.currentFrame]);
-		Context::_swapchain.nextSwapchainImage = acquireResult.value;
+		m_Device->waitForFences(m_InFlightFences[m_Swapchain.currentFrame], true, UINT64_MAX);
+		auto acquireResult = m_Device->acquireNextImageKHR(m_Swapchain.swapchain, UINT64_MAX, m_ImageAvailableSemaphores[m_Swapchain.currentFrame]);
+		m_Swapchain.nextSwapchainImage = acquireResult.value;
 	}
 	void Context::DestroySwapchain()
 	{
-		for (auto& imageView : Context::_swapchain.swapchainImageViews) {
-			Context::_device->destroyImageView(imageView);
+		for (auto& imageView : m_Swapchain.swapchainImageViews) {
+			m_Device->destroyImageView(imageView);
 		}
-		Context::_device->destroySwapchainKHR(Context::_swapchain.swapchain);
+		m_Device->destroySwapchainKHR(m_Swapchain.swapchain);
 	}
 	void Context::RecreateSwapchain(uint32_t width, uint32_t height)
 	{
-		Context::WaitIdle();
-		Context::CreateSwapchain(width, height);
-		Context::CreateSwapchainImages();
-		Context::WaitIdle();
+		WaitIdle();
+		CreateSwapchain(width, height);
+		CreateSwapchainImages();
+		WaitIdle();
 	}
 	void Context::Present()
 	{
 		vk::PresentInfoKHR presentInfo;
 		presentInfo.sType = vk::StructureType::ePresentInfoKHR;
 		presentInfo.swapchainCount = 1;
-		presentInfo.pSwapchains = &Context::_swapchain.swapchain;
+		presentInfo.pSwapchains = &m_Swapchain.swapchain;
 		presentInfo.waitSemaphoreCount = 1;
-		presentInfo.pWaitSemaphores = &Context::renderFinishedSemaphores[Context::_swapchain.currentFrame];
-		presentInfo.pImageIndices = &Context::_swapchain.nextSwapchainImage;
-		Context::_graphicsQueue.presentKHR(presentInfo);
-		Context::_swapchain.currentFrame = (Context::_swapchain.currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+		presentInfo.pWaitSemaphores = &m_RenderFinishedSemaphores[m_Swapchain.currentFrame];
+		presentInfo.pImageIndices = &m_Swapchain.nextSwapchainImage;
+		m_GraphicsQueue.presentKHR(presentInfo);
+		m_Swapchain.currentFrame = (m_Swapchain.currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
 	////////////////////////////////////////////////////////////////////////////////////////COMMANDS////////////////////////////////////////////////////////////////////
 	void Context::WaitIdle()
 	{
-		Context::_device->waitIdle();
+		m_Device->waitIdle();
 	}
 	static uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) {
-		auto memProperties = Context::_GPU.getMemoryProperties();
+		auto memProperties = Core::Context::Get()->GetGPU().getMemoryProperties();
 
 		for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i) {
 			if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
@@ -499,29 +485,29 @@ namespace Core
 		vk::BufferCreateInfo bufferCreateInfo{};
 		bufferCreateInfo.size = size;
 		bufferCreateInfo.usage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress;
-		scratchBuffer.handle = Core::Context::_device->createBuffer(bufferCreateInfo);
-		vk::MemoryRequirements memoryRequirements = Core::Context::_device->getBufferMemoryRequirements(scratchBuffer.handle);
+		scratchBuffer.handle = Core::Context::Get()->GetDevice()->createBuffer(bufferCreateInfo);
+		vk::MemoryRequirements memoryRequirements = Core::Context::Get()->GetDevice()->getBufferMemoryRequirements(scratchBuffer.handle);
 		vk::MemoryAllocateFlagsInfo memoryAllocateFlagsInfo{};
 		memoryAllocateFlagsInfo.flags = vk::MemoryAllocateFlagBits::eDeviceAddress;
 		vk::MemoryAllocateInfo memoryAllocateInfo = {};
 		memoryAllocateInfo.pNext = &memoryAllocateFlagsInfo;
 		memoryAllocateInfo.allocationSize = memoryRequirements.size;
-		memoryAllocateInfo.memoryTypeIndex = Core::Context::findMemoryType(memoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);
-		Core::Context::_device->allocateMemory(&memoryAllocateInfo, nullptr, &scratchBuffer.memory);
-		Core::Context::_device->bindBufferMemory(scratchBuffer.handle, scratchBuffer.memory, 0);
+		memoryAllocateInfo.memoryTypeIndex = Core::Context::Get()->findMemoryType(memoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);
+		Core::Context::Get()->GetDevice()->allocateMemory(&memoryAllocateInfo, nullptr, &scratchBuffer.memory);
+		Core::Context::Get()->GetDevice()->bindBufferMemory(scratchBuffer.handle, scratchBuffer.memory, 0);
 		// Buffer device address
 		vk::BufferDeviceAddressInfoKHR bufferDeviceAddresInfo{};
 		bufferDeviceAddresInfo.buffer = scratchBuffer.handle;
-		scratchBuffer.deviceAddress = Core::Context::_device->getBufferAddressKHR(&bufferDeviceAddresInfo);
+		scratchBuffer.deviceAddress = Core::Context::Get()->GetDevice()->getBufferAddressKHR(&bufferDeviceAddresInfo);
 		return scratchBuffer;
 	}
 	void deleteScratchBuffer(ScratchBuffer& scratchBuffer)
 	{
 		if (scratchBuffer.memory) {
-			Core::Context::_device->freeMemory(scratchBuffer.memory, nullptr);
+			Core::Context::Get()->GetDevice()->freeMemory(scratchBuffer.memory, nullptr);
 		}
 		if (scratchBuffer.handle) {
-			Core::Context::_device->destroyBuffer(scratchBuffer.handle, nullptr);
+			Core::Context::Get()->GetDevice()->destroyBuffer(scratchBuffer.handle, nullptr);
 		}
 	}
 }

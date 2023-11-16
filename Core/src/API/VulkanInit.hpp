@@ -56,41 +56,56 @@ namespace Core
 	};
 	struct Context
 	{
+		Context();
+		~Context();
 		static void Init();
 		static void Shutdown();
-		static void SetWindowSurface(void* window);
-		static void InitDevice();
-		static void CreateSwapchain(uint32_t width, uint32_t height);
-		static void CreateSwapchainImages();
-		static void AcquireNextSwapchainImage();
-		static void DestroySwapchain();
-		static void RecreateSwapchain(uint32_t width, uint32_t height);
-		static void Present();
-		static void WaitIdle();
-		static uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
-		static void allocateBufferMemory(vk::Buffer& buffer, vk::DeviceMemory& mem, vk::MemoryPropertyFlags flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, vk::MemoryAllocateFlags allocInfo = vk::MemoryAllocateFlagBits::eDeviceAddressCaptureReplay);
-		static vk::UniqueInstance _instance;
-		static vk::DispatchLoaderDynamic _dispatcher;
-		static vk::UniqueHandle<vk::DebugUtilsMessengerEXT, vk::DispatchLoaderDynamic> _debugMessenger;
-		static vk::UniqueSurfaceKHR _surface;
-		static vk::PhysicalDevice _GPU;
-		static vk::UniqueDevice _device;
-		static vk::Queue _graphicsQueue;
-		static vk::Queue _transferQueue;
-		static vk::Queue _computeQueue;
-		static vk::CommandPool _graphicsCommandPool;
-		static vk::CommandPool _transferCommandPool;
-		static vk::CommandPool _computeCommandPool;
-		static vk::DescriptorPool _descriptorPool;
-		static std::vector<const char*> _layers;
-		static std::vector<const char*> _instanceExtensions;
-		static std::vector<const char*> _deviceExtensions;
-		static QueueFamilyIndices _queueFamilyIndices;
-		static Swapchain _swapchain;
-		static std::vector<vk::Semaphore>			imageAvailableSemaphores;
-		static std::vector<vk::Semaphore>			renderFinishedSemaphores;
-		static std::vector<vk::Fence>				inFlightFences;
-		static std::vector<vk::Fence>				imagesInFlight;
+		void SetWindowSurface(void* window);
+		void InitDevice();
+		void CreateSwapchain(uint32_t width, uint32_t height);
+		void CreateSwapchainImages();
+		void AcquireNextSwapchainImage();
+		void DestroySwapchain();
+		void RecreateSwapchain(uint32_t width, uint32_t height);
+		void Present();
+		void WaitIdle();
+		uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
+		void allocateBufferMemory(vk::Buffer& buffer, vk::DeviceMemory& mem, vk::MemoryPropertyFlags flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, vk::MemoryAllocateFlags allocInfo = vk::MemoryAllocateFlagBits::eDeviceAddressCaptureReplay);
+		static const std::unique_ptr<Context>& Get() { return s_Context; }
+		const vk::CommandPool& GetGraphicsCommandPool() { return m_GraphicsCommandPool; }
+		const vk::Queue& GetGraphicsQueue() { return m_GraphicsQueue; }
+		const vk::Semaphore& GetImageAvailableSemaphore() { return m_ImageAvailableSemaphores[m_Swapchain.currentFrame]; }
+		const vk::Semaphore& GetRenderFinishedSemaphore() { return m_RenderFinishedSemaphores[m_Swapchain.currentFrame]; }
+		const vk::Fence& GetInFlightFence() { return m_InFlightFences[m_Swapchain.currentFrame]; }
+		const vk::Fence& GetImagesInFlightFence() { return m_ImagesInFlight[m_Swapchain.currentFrame]; }
+		const vk::PhysicalDevice& GetGPU() { return m_GPU; }
+		const vk::UniqueDevice& GetDevice() { return m_Device; }
+		const Swapchain& GetSwapchain() { return m_Swapchain; }
+		const vk::DescriptorPool& GetDescriptorPool() { return m_DescriptorPool; }
+	private:
+		static std::unique_ptr<Context> s_Context;
+		vk::UniqueInstance m_Instance;
+		vk::DispatchLoaderDynamic m_Dispatcher;
+		vk::UniqueHandle<vk::DebugUtilsMessengerEXT, vk::DispatchLoaderDynamic> m_DebugMessenger;
+		vk::UniqueSurfaceKHR m_Surface;
+		vk::PhysicalDevice m_GPU;
+		vk::UniqueDevice m_Device;
+		vk::Queue m_GraphicsQueue;
+		vk::Queue m_TransferQueue;
+		vk::Queue m_ComputeQueue;
+		vk::CommandPool m_GraphicsCommandPool;
+		vk::CommandPool m_TransferCommandPool;
+		vk::CommandPool m_ComputeCommandPool;
+		vk::DescriptorPool m_DescriptorPool;
+		std::vector<const char*> m_Layers;
+		std::vector<const char*> m_InstanceExtensions;
+		std::vector<const char*> m_DeviceExtensions;
+		QueueFamilyIndices m_QueueFamilyIndices;
+		Swapchain m_Swapchain;
+		std::vector<vk::Semaphore>			m_ImageAvailableSemaphores;
+		std::vector<vk::Semaphore>			m_RenderFinishedSemaphores;
+		std::vector<vk::Fence>				m_InFlightFences;
+		std::vector<vk::Fence>				m_ImagesInFlight;
 	};
 
 }

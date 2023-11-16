@@ -54,7 +54,7 @@ namespace Core
 		renderpassInfo.pAttachments = attachments.data();
 		renderpassInfo.subpassCount = 1;
 		renderpassInfo.pSubpasses = &subpass;
-		m_Handle = Core::Context::_device->createRenderPass(renderpassInfo);
+		m_Handle = Context::Get()->GetDevice()->createRenderPass(renderpassInfo);
 	}
 
 	RenderPass::~RenderPass()
@@ -63,6 +63,6 @@ namespace Core
 
 	void RenderPass::Destroy()
 	{
-		Core::Context::_device->destroyRenderPass(m_Handle);
+		Context::Get()->GetDevice()->destroyRenderPass(m_Handle);
 	}
 }

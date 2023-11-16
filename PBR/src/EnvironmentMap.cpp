@@ -35,17 +35,17 @@ namespace Example
 			moduleInfo.flags = vk::ShaderModuleCreateFlags();
 			moduleInfo.codeSize = sourceCode.size();
 			moduleInfo.pCode = reinterpret_cast<const uint32_t*>(sourceCode.data());
-			return Core::Context::_device->createShaderModule(moduleInfo);
+			return Core::Context::Get()->GetDevice()->createShaderModule(moduleInfo);
 		}
 	}
 
 	void EnvironmentMap::Destroy()
 	{
-		Core::Context::_device->waitIdle();
-		Core::Context::_device->destroyImageView(m_unfiltered.view);
-		Core::Context::_device->destroySampler(m_unfiltered.sampler);
-		Core::Context::_device->destroyImage(m_unfiltered.image);
-		Core::Context::_device->freeMemory(m_unfiltered.memory);
+		Core::Context::Get()->GetDevice()->waitIdle();
+		Core::Context::Get()->GetDevice()->destroyImageView(m_unfiltered.view);
+		Core::Context::Get()->GetDevice()->destroySampler(m_unfiltered.sampler);
+		Core::Context::Get()->GetDevice()->destroyImage(m_unfiltered.image);
+		Core::Context::Get()->GetDevice()->freeMemory(m_unfiltered.memory);
 	}
 	void EnvironmentMap::load(const std::string& path)
 	{
@@ -83,15 +83,15 @@ namespace Example
 			layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
 			layoutInfo.pBindings = bindings.data();
 
-			vk::DescriptorSetLayout descriptorLayout = Core::Context::_device->createDescriptorSetLayout(layoutInfo);
+			vk::DescriptorSetLayout descriptorLayout = Core::Context::Get()->GetDevice()->createDescriptorSetLayout(layoutInfo);
 
 			vk::DescriptorSetAllocateInfo allocateInfo;
 			allocateInfo.sType = vk::StructureType::eDescriptorSetAllocateInfo;
-			allocateInfo.descriptorPool = Core::Context::_descriptorPool;
+			allocateInfo.descriptorPool = Core::Context::Get()->GetDescriptorPool();
 			allocateInfo.descriptorSetCount = 1;
 			allocateInfo.pSetLayouts = &descriptorLayout;
 
-			vk::DescriptorSet set = Core::Context::_device->allocateDescriptorSets(allocateInfo).front();
+			vk::DescriptorSet set = Core::Context::Get()->GetDevice()->allocateDescriptorSets(allocateInfo).front();
 
 			vk::DescriptorImageInfo desc_image0;
 			vk::DescriptorImageInfo desc_image1;
@@ -108,7 +108,7 @@ namespace Example
 			write.descriptorCount = 1;
 			write.pImageInfo = &desc_image0;
 
-			Core::Context::_device->updateDescriptorSets(write, nullptr);
+			Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 
 			desc_image1.sampler = m_unfiltered.sampler;
 			desc_image1.imageView = m_unfiltered.view;
@@ -121,7 +121,7 @@ namespace Example
 			write.descriptorCount = 1;
 			write.pImageInfo = &desc_image1;
 
-			Core::Context::_device->updateDescriptorSets(write, nullptr);
+			Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 
 			vk::PipelineShaderStageCreateInfo computeShaderInfo{};
 			computeShaderInfo.flags = vk::PipelineShaderStageCreateFlags();
@@ -136,7 +136,7 @@ namespace Example
 			layoutCreateInfo.pushConstantRangeCount = 0;
 			layoutCreateInfo.pPushConstantRanges = nullptr;
 
-			vk::PipelineLayout pipelineLayout = Core::Context::_device->createPipelineLayout(layoutCreateInfo);
+			vk::PipelineLayout pipelineLayout = Core::Context::Get()->GetDevice()->createPipelineLayout(layoutCreateInfo);
 
 			vk::ComputePipelineCreateInfo compPipelineInfo;
 			compPipelineInfo.sType = vk::StructureType::eComputePipelineCreateInfo;
@@ -145,14 +145,14 @@ namespace Example
 			compPipelineInfo.basePipelineHandle = nullptr;
 			compPipelineInfo.basePipelineIndex = -1;
 
-			vk::Pipeline pipeline = Core::Context::_device->createComputePipeline(VK_NULL_HANDLE, compPipelineInfo).value;
+			vk::Pipeline pipeline = Core::Context::Get()->GetDevice()->createComputePipeline(VK_NULL_HANDLE, compPipelineInfo).value;
 
 			vk::CommandBufferAllocateInfo cmdAllocateInfo;
 			cmdAllocateInfo.sType = vk::StructureType::eCommandBufferAllocateInfo;
-			cmdAllocateInfo.commandPool = Core::Context::_graphicsCommandPool;
+			cmdAllocateInfo.commandPool = Core::Context::Get()->GetGraphicsCommandPool();
 			cmdAllocateInfo.commandBufferCount = MAX_FRAMES_IN_FLIGHT;
 			cmdAllocateInfo.level = vk::CommandBufferLevel::ePrimary;
-			vk::CommandBuffer cmd = Core::Context::_device->allocateCommandBuffers(cmdAllocateInfo).front();
+			vk::CommandBuffer cmd = Core::Context::Get()->GetDevice()->allocateCommandBuffers(cmdAllocateInfo).front();
 			vk::CommandBufferBeginInfo begininfo;
 			begininfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
 			cmd.begin(begininfo);
@@ -168,17 +168,17 @@ namespace Example
 			submitInfo.pSignalSemaphores = nullptr;
 			submitInfo.commandBufferCount = 1;
 			submitInfo.pCommandBuffers = &cmd;
-			Core::Context::_graphicsQueue.submit(submitInfo);
-			Core::Context::_device->waitIdle();
+			Core::Context::Get()->GetGraphicsQueue().submit(submitInfo);
+			Core::Context::Get()->GetDevice()->waitIdle();
 			Utils::generateMips(m_unfiltered.image, CubeMapSize);
 
 			equirectangular->Destroy();
-			Core::Context::_device->destroyShaderModule(computeShader);
-			Core::Context::_device->destroyPipeline(pipeline);
-			Core::Context::_device->destroyPipelineLayout(pipelineLayout);
-			Core::Context::_device->freeDescriptorSets(Core::Context::_descriptorPool, set);
-			Core::Context::_device->destroyDescriptorSetLayout(descriptorLayout);
-			Core::Context::_device->freeCommandBuffers(Core::Context::_graphicsCommandPool, cmd);
+			Core::Context::Get()->GetDevice()->destroyShaderModule(computeShader);
+			Core::Context::Get()->GetDevice()->destroyPipeline(pipeline);
+			Core::Context::Get()->GetDevice()->destroyPipelineLayout(pipelineLayout);
+			Core::Context::Get()->GetDevice()->freeDescriptorSets(Core::Context::Get()->GetDescriptorPool(), set);
+			Core::Context::Get()->GetDevice()->destroyDescriptorSetLayout(descriptorLayout);
+			Core::Context::Get()->GetDevice()->freeCommandBuffers(Core::Context::Get()->GetGraphicsCommandPool(), cmd);
 		}
 		// Compute RadienceMap Texture From UnfilteredCubeMap Texture
 		{
@@ -207,10 +207,10 @@ namespace Example
 			layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
 			layoutInfo.pBindings = bindings.data();
 
-			vk::DescriptorSetLayout descriptorLayout = Core::Context::_device->createDescriptorSetLayout(layoutInfo);
+			vk::DescriptorSetLayout descriptorLayout = Core::Context::Get()->GetDevice()->createDescriptorSetLayout(layoutInfo);
 			vk::DescriptorSetAllocateInfo allocateInfo;
 			allocateInfo.sType = vk::StructureType::eDescriptorSetAllocateInfo;
-			allocateInfo.descriptorPool = Core::Context::_descriptorPool;
+			allocateInfo.descriptorPool = Core::Context::Get()->GetDescriptorPool();
 			allocateInfo.descriptorSetCount = 1;
 			allocateInfo.pSetLayouts = &descriptorLayout;
 
@@ -233,8 +233,8 @@ namespace Example
 				imgViewInfo.subresourceRange.layerCount = 6;
 				imgViewInfo.image = m_radiance.image;
 
-				tempView = Core::Context::_device->createImageView(imgViewInfo);
-				vk::DescriptorSet set = Core::Context::_device->allocateDescriptorSets(allocateInfo).front();
+				tempView = Core::Context::Get()->GetDevice()->createImageView(imgViewInfo);
+				vk::DescriptorSet set = Core::Context::Get()->GetDevice()->allocateDescriptorSets(allocateInfo).front();
 				vk::DescriptorImageInfo desc_image0;
 				vk::DescriptorImageInfo desc_image1;
 				vk::WriteDescriptorSet write;
@@ -250,7 +250,7 @@ namespace Example
 				write.descriptorCount = 1;
 				write.pImageInfo = &desc_image0;
 
-				Core::Context::_device->updateDescriptorSets(write, nullptr);
+				Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 
 				desc_image1.sampler = m_radiance.sampler;
 				desc_image1.imageView = tempView;
@@ -263,7 +263,7 @@ namespace Example
 				write.descriptorCount = 1;
 				write.pImageInfo = &desc_image1;
 
-				Core::Context::_device->updateDescriptorSets(write, nullptr);
+				Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 				sets.push_back(set);
 			}
 			vk::PipelineShaderStageCreateInfo computeShaderInfo{};
@@ -284,7 +284,7 @@ namespace Example
 			layoutCreateInfo.pushConstantRangeCount = 1;
 			layoutCreateInfo.pPushConstantRanges = &pushC;
 
-			vk::PipelineLayout pipelineLayout = Core::Context::_device->createPipelineLayout(layoutCreateInfo);
+			vk::PipelineLayout pipelineLayout = Core::Context::Get()->GetDevice()->createPipelineLayout(layoutCreateInfo);
 
 			vk::ComputePipelineCreateInfo compPipelineInfo;
 			compPipelineInfo.sType = vk::StructureType::eComputePipelineCreateInfo;
@@ -293,14 +293,14 @@ namespace Example
 			compPipelineInfo.basePipelineHandle = nullptr;
 			compPipelineInfo.basePipelineIndex = -1;
 
-			vk::Pipeline pipeline = Core::Context::_device->createComputePipeline(VK_NULL_HANDLE, compPipelineInfo).value;
+			vk::Pipeline pipeline = Core::Context::Get()->GetDevice()->createComputePipeline(VK_NULL_HANDLE, compPipelineInfo).value;
 
 			vk::CommandBufferAllocateInfo cmdAllocateInfo;
 			cmdAllocateInfo.sType = vk::StructureType::eCommandBufferAllocateInfo;
-			cmdAllocateInfo.commandPool = Core::Context::_graphicsCommandPool;
+			cmdAllocateInfo.commandPool = Core::Context::Get()->GetGraphicsCommandPool();
 			cmdAllocateInfo.commandBufferCount = MAX_FRAMES_IN_FLIGHT;
 			cmdAllocateInfo.level = vk::CommandBufferLevel::ePrimary;
-			vk::CommandBuffer cmd = Core::Context::_device->allocateCommandBuffers(cmdAllocateInfo).front();
+			vk::CommandBuffer cmd = Core::Context::Get()->GetDevice()->allocateCommandBuffers(cmdAllocateInfo).front();
 			vk::CommandBufferBeginInfo begininfo;
 			begininfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
 			cmd.begin(begininfo);
@@ -324,17 +324,17 @@ namespace Example
 			submitInfo.pSignalSemaphores = nullptr;
 			submitInfo.commandBufferCount = 1;
 			submitInfo.pCommandBuffers = &cmd;
-			Core::Context::_graphicsQueue.submit(submitInfo);
-			Core::Context::_device->waitIdle();
+			Core::Context::Get()->GetGraphicsQueue().submit(submitInfo);
+			Core::Context::Get()->GetDevice()->waitIdle();
 			Utils::generateMips(m_unfiltered.image, CubeMapSize);
-			Core::Context::_device->destroyShaderModule(computeShader);
-			Core::Context::_device->destroyPipeline(pipeline);
-			Core::Context::_device->destroyPipelineLayout(pipelineLayout);
+			Core::Context::Get()->GetDevice()->destroyShaderModule(computeShader);
+			Core::Context::Get()->GetDevice()->destroyPipeline(pipeline);
+			Core::Context::Get()->GetDevice()->destroyPipelineLayout(pipelineLayout);
 			for (auto set : sets)
-				Core::Context::_device->freeDescriptorSets(Core::Context::_descriptorPool, set);
+				Core::Context::Get()->GetDevice()->freeDescriptorSets(Core::Context::Get()->GetDescriptorPool(), set);
 			sets.clear();
-			Core::Context::_device->destroyDescriptorSetLayout(descriptorLayout);
-			Core::Context::_device->freeCommandBuffers(Core::Context::_graphicsCommandPool, cmd);
+			Core::Context::Get()->GetDevice()->destroyDescriptorSetLayout(descriptorLayout);
+			Core::Context::Get()->GetDevice()->freeCommandBuffers(Core::Context::Get()->GetGraphicsCommandPool(), cmd);
 		}
 		// Compute IrradianceMap Texture From RadienceMap Texture
 		{
@@ -363,14 +363,14 @@ namespace Example
 			layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
 			layoutInfo.pBindings = bindings.data();
 
-			vk::DescriptorSetLayout descriptorLayout = Core::Context::_device->createDescriptorSetLayout(layoutInfo);
+			vk::DescriptorSetLayout descriptorLayout = Core::Context::Get()->GetDevice()->createDescriptorSetLayout(layoutInfo);
 			vk::DescriptorSetAllocateInfo allocateInfo;
 			allocateInfo.sType = vk::StructureType::eDescriptorSetAllocateInfo;
-			allocateInfo.descriptorPool = Core::Context::_descriptorPool;
+			allocateInfo.descriptorPool = Core::Context::Get()->GetDescriptorPool();
 			allocateInfo.descriptorSetCount = 1;
 			allocateInfo.pSetLayouts = &descriptorLayout;
 
-			vk::DescriptorSet set = Core::Context::_device->allocateDescriptorSets(allocateInfo).front();
+			vk::DescriptorSet set = Core::Context::Get()->GetDevice()->allocateDescriptorSets(allocateInfo).front();
 
 			vk::DescriptorImageInfo desc_image0;
 			vk::WriteDescriptorSet write;
@@ -386,7 +386,7 @@ namespace Example
 			write.descriptorCount = 1;
 			write.pImageInfo = &desc_image0;
 
-			Core::Context::_device->updateDescriptorSets(write, nullptr);
+			Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 
 			vk::DescriptorImageInfo desc_image1;
 
@@ -401,7 +401,7 @@ namespace Example
 			write.descriptorCount = 1;
 			write.pImageInfo = &desc_image1;
 
-			Core::Context::_device->updateDescriptorSets(write, nullptr);
+			Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 
 			vk::PipelineShaderStageCreateInfo computeShaderInfo{};
 			computeShaderInfo.flags = vk::PipelineShaderStageCreateFlags();
@@ -421,7 +421,7 @@ namespace Example
 			layoutCreateInfo.pushConstantRangeCount = 1;
 			layoutCreateInfo.pPushConstantRanges = &pushC;
 
-			vk::PipelineLayout pipelineLayout = Core::Context::_device->createPipelineLayout(layoutCreateInfo);
+			vk::PipelineLayout pipelineLayout = Core::Context::Get()->GetDevice()->createPipelineLayout(layoutCreateInfo);
 
 			vk::ComputePipelineCreateInfo compPipelineInfo;
 			compPipelineInfo.sType = vk::StructureType::eComputePipelineCreateInfo;
@@ -430,14 +430,14 @@ namespace Example
 			compPipelineInfo.basePipelineHandle = nullptr;
 			compPipelineInfo.basePipelineIndex = -1;
 
-			vk::Pipeline pipeline = Core::Context::_device->createComputePipeline(VK_NULL_HANDLE, compPipelineInfo).value;
+			vk::Pipeline pipeline = Core::Context::Get()->GetDevice()->createComputePipeline(VK_NULL_HANDLE, compPipelineInfo).value;
 
 			vk::CommandBufferAllocateInfo cmdAllocateInfo;
 			cmdAllocateInfo.sType = vk::StructureType::eCommandBufferAllocateInfo;
-			cmdAllocateInfo.commandPool = Core::Context::_graphicsCommandPool;
+			cmdAllocateInfo.commandPool = Core::Context::Get()->GetGraphicsCommandPool();
 			cmdAllocateInfo.commandBufferCount = MAX_FRAMES_IN_FLIGHT;
 			cmdAllocateInfo.level = vk::CommandBufferLevel::ePrimary;
-			vk::CommandBuffer cmd = Core::Context::_device->allocateCommandBuffers(cmdAllocateInfo).front();
+			vk::CommandBuffer cmd = Core::Context::Get()->GetDevice()->allocateCommandBuffers(cmdAllocateInfo).front();
 			vk::CommandBufferBeginInfo begininfo;
 			begininfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
 			cmd.begin(begininfo);
@@ -454,15 +454,15 @@ namespace Example
 			submitInfo.pSignalSemaphores = nullptr;
 			submitInfo.commandBufferCount = 1;
 			submitInfo.pCommandBuffers = &cmd;
-			Core::Context::_graphicsQueue.submit(submitInfo);
-			Core::Context::_device->waitIdle();
+			Core::Context::Get()->GetGraphicsQueue().submit(submitInfo);
+			Core::Context::Get()->GetDevice()->waitIdle();
 			Utils::generateMips(m_unfiltered.image, CubeMapSize);
-			Core::Context::_device->destroyShaderModule(computeShader);
-			Core::Context::_device->destroyPipeline(pipeline);
-			Core::Context::_device->destroyPipelineLayout(pipelineLayout);
-			Core::Context::_device->freeDescriptorSets(Core::Context::_descriptorPool, set);
-			Core::Context::_device->destroyDescriptorSetLayout(descriptorLayout);
-			Core::Context::_device->freeCommandBuffers(Core::Context::_graphicsCommandPool, cmd);
+			Core::Context::Get()->GetDevice()->destroyShaderModule(computeShader);
+			Core::Context::Get()->GetDevice()->destroyPipeline(pipeline);
+			Core::Context::Get()->GetDevice()->destroyPipelineLayout(pipelineLayout);
+			Core::Context::Get()->GetDevice()->freeDescriptorSets(Core::Context::Get()->GetDescriptorPool(), set);
+			Core::Context::Get()->GetDevice()->destroyDescriptorSetLayout(descriptorLayout);
+			Core::Context::Get()->GetDevice()->freeCommandBuffers(Core::Context::Get()->GetGraphicsCommandPool(), cmd);
 		}
 	}
 	namespace Utils
@@ -475,9 +475,9 @@ namespace Example
 				vk::CommandBufferAllocateInfo allocinfo;
 				allocinfo.sType = vk::StructureType::eCommandBufferAllocateInfo;
 				allocinfo.level = vk::CommandBufferLevel::ePrimary;
-				allocinfo.commandPool = Core::Context::_graphicsCommandPool;
+				allocinfo.commandPool = Core::Context::Get()->GetGraphicsCommandPool();
 				allocinfo.commandBufferCount = 1;
-				auto tempCmd = Core::Context::_device->allocateCommandBuffers(allocinfo).front();
+				auto tempCmd = Core::Context::Get()->GetDevice()->allocateCommandBuffers(allocinfo).front();
 				vk::CommandBufferBeginInfo beg;
 				beg.sType = vk::StructureType::eCommandBufferBeginInfo;
 				beg.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
@@ -575,9 +575,9 @@ namespace Example
 				submitThis.sType = vk::StructureType::eSubmitInfo;
 				submitThis.commandBufferCount = 1;
 				submitThis.pCommandBuffers = &tempCmd;
-				Core::Context::_graphicsQueue.submit(submitThis);
-				Core::Context::_graphicsQueue.waitIdle();
-				Core::Context::_device->freeCommandBuffers(Core::Context::_graphicsCommandPool, tempCmd);
+				Core::Context::Get()->GetGraphicsQueue().submit(submitThis);
+				Core::Context::Get()->GetGraphicsQueue().waitIdle();
+				Core::Context::Get()->GetDevice()->freeCommandBuffers(Core::Context::Get()->GetGraphicsCommandPool(), tempCmd);
 			}
 		}
 		static void createTexture3D(vk::Image& img, vk::DeviceMemory& imgMemory, vk::ImageView& imgView, vk::Sampler& sampler, uint32_t cubeMapSize)
@@ -606,22 +606,22 @@ namespace Example
 				imgInfo.sharingMode = vk::SharingMode::eExclusive;
 				imgInfo.flags = vk::ImageCreateFlagBits::eCubeCompatible;
 
-				img = Core::Context::_device->createImage(imgInfo);
+				img = Core::Context::Get()->GetDevice()->createImage(imgInfo);
 
-				vk::MemoryRequirements memReqs = Core::Context::_device->getImageMemoryRequirements(img);
+				vk::MemoryRequirements memReqs = Core::Context::Get()->GetDevice()->getImageMemoryRequirements(img);
 				vk::MemoryAllocateInfo memAlloc;
 				memAlloc.sType = vk::StructureType::eMemoryAllocateInfo;
 				memAlloc.allocationSize = memReqs.size;
-				memAlloc.memoryTypeIndex = Core::Context::findMemoryType(memReqs.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);
-				imgMemory = Core::Context::_device->allocateMemory(memAlloc);
-				Core::Context::_device->bindImageMemory(img, imgMemory, /*vk::DeviceSize*/0);
+				memAlloc.memoryTypeIndex = Core::Context::Get()->findMemoryType(memReqs.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);
+				imgMemory = Core::Context::Get()->GetDevice()->allocateMemory(memAlloc);
+				Core::Context::Get()->GetDevice()->bindImageMemory(img, imgMemory, /*vk::DeviceSize*/0);
 			}
 			vk::CommandBufferAllocateInfo allocinfo;
 			allocinfo.sType = vk::StructureType::eCommandBufferAllocateInfo;
 			allocinfo.level = vk::CommandBufferLevel::ePrimary;
-			allocinfo.commandPool = Core::Context::_graphicsCommandPool;
+			allocinfo.commandPool = Core::Context::Get()->GetGraphicsCommandPool();
 			allocinfo.commandBufferCount = 1;
-			auto tempCmd = Core::Context::_device->allocateCommandBuffers(allocinfo).front();
+			auto tempCmd = Core::Context::Get()->GetDevice()->allocateCommandBuffers(allocinfo).front();
 			vk::CommandBufferBeginInfo beg;
 			beg.sType = vk::StructureType::eCommandBufferBeginInfo;
 			beg.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
@@ -645,9 +645,9 @@ namespace Example
 			submitThis.sType = vk::StructureType::eSubmitInfo;
 			submitThis.commandBufferCount = 1;
 			submitThis.pCommandBuffers = &tempCmd;
-			Core::Context::_graphicsQueue.submit(submitThis);
-			Core::Context::_graphicsQueue.waitIdle();
-			Core::Context::_device->freeCommandBuffers(Core::Context::_graphicsCommandPool, tempCmd);
+			Core::Context::Get()->GetGraphicsQueue().submit(submitThis);
+			Core::Context::Get()->GetGraphicsQueue().waitIdle();
+			Core::Context::Get()->GetDevice()->freeCommandBuffers(Core::Context::Get()->GetGraphicsCommandPool(), tempCmd);
 			//Create Image View
 			{
 				vk::ImageViewCreateInfo imgViewInfo;
@@ -662,7 +662,7 @@ namespace Example
 				imgViewInfo.subresourceRange.baseArrayLayer = 0;
 				imgViewInfo.subresourceRange.layerCount = 6;
 				imgViewInfo.image = img;
-				imgView = Core::Context::_device->createImageView(imgViewInfo);
+				imgView = Core::Context::Get()->GetDevice()->createImageView(imgViewInfo);
 			}
 			//Create Sampler
 			{
@@ -681,7 +681,7 @@ namespace Example
 				samplerInfo.maxLod = mipLevels;
 				samplerInfo.compareOp = vk::CompareOp::eNever;
 				samplerInfo.borderColor = vk::BorderColor::eFloatOpaqueBlack;
-				sampler = Core::Context::_device->createSampler(samplerInfo);
+				sampler = Core::Context::Get()->GetDevice()->createSampler(samplerInfo);
 			}
 			//Set Data (Delete If unnecessary)
 			{

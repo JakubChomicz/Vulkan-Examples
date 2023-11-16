@@ -7,8 +7,8 @@ namespace Example
 {
 	void Camera::Destroy()
 	{
-		Core::Context::_device->destroyBuffer(m_CameraUniformBuffer.buffer);
-		Core::Context::_device->freeMemory(m_CameraUniformBuffer.mem);
+		Core::Context::Get()->GetDevice()->destroyBuffer(m_CameraUniformBuffer.buffer);
+		Core::Context::Get()->GetDevice()->freeMemory(m_CameraUniformBuffer.mem);
 	}
 	void Camera::CreateBuffer()
 	{
@@ -17,15 +17,15 @@ namespace Example
 		bufferinfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
 		bufferinfo.size = sizeof(CameraData);
 		bufferinfo.sharingMode = vk::SharingMode::eExclusive;
-		m_CameraUniformBuffer.buffer = Core::Context::_device->createBuffer(bufferinfo);
+		m_CameraUniformBuffer.buffer = Core::Context::Get()->GetDevice()->createBuffer(bufferinfo);
 
-		Core::Context::allocateBufferMemory(m_CameraUniformBuffer.buffer, m_CameraUniformBuffer.mem);
+		Core::Context::Get()->allocateBufferMemory(m_CameraUniformBuffer.buffer, m_CameraUniformBuffer.mem);
 
-		void* vmemlocation = Core::Context::_device->mapMemory(m_CameraUniformBuffer.mem, 0, sizeof(CameraData));
+		void* vmemlocation = Core::Context::Get()->GetDevice()->mapMemory(m_CameraUniformBuffer.mem, 0, sizeof(CameraData));
 		auto temp = static_cast<CameraData*>(vmemlocation);
 		temp->View				= m_data.View;
 		temp->Projection		= m_data.Projection;
-		Core::Context::_device->unmapMemory(m_CameraUniformBuffer.mem);
+		Core::Context::Get()->GetDevice()->unmapMemory(m_CameraUniformBuffer.mem);
 	}
 	void Camera::OnUpdate()
 	{
@@ -70,8 +70,8 @@ namespace Example
 	}
 	void Camera::UpdateProjection()
 	{
-		m_AspectRatio = float(Core::Context::_swapchain.extent.width)
-			/ float(Core::Context::_swapchain.extent.height);
+		m_AspectRatio = float(Core::Context::Get()->GetSwapchain().extent.width)
+			/ float(Core::Context::Get()->GetSwapchain().extent.height);
 		m_data.Projection = HML::ClipSpace::Perspective_RH_ZO(m_FOV, m_AspectRatio, m_NearClip, m_FarClip);
 	}
 	void Camera::UpdateView()
@@ -80,11 +80,11 @@ namespace Example
 	}
 	void Camera::UpdateBuffer()
 	{
-		void* vmemlocation = Core::Context::_device->mapMemory(m_CameraUniformBuffer.mem, 0, sizeof(CameraData));
+		void* vmemlocation = Core::Context::Get()->GetDevice()->mapMemory(m_CameraUniformBuffer.mem, 0, sizeof(CameraData));
 		auto temp = static_cast<CameraData*>(vmemlocation);
 		temp->View = m_data.View;
 		temp->Projection = m_data.Projection;
-		Core::Context::_device->unmapMemory(m_CameraUniformBuffer.mem);
+		Core::Context::Get()->GetDevice()->unmapMemory(m_CameraUniformBuffer.mem);
 	}
 	void Camera::MouseRotate()
 	{
@@ -94,8 +94,8 @@ namespace Example
 		const HML::Vector2<>& mouse{ Core::Input::GetMouseX(), Core::Input::GetMouseY() };
 		Core::Input::SetMousePos(center.first, center.second);
 		HML::Vector2<> delta;
-		delta.y = 1.6f * (float)(mouse.y - center.second) / Core::Context::_swapchain.swapchainHeight;
-		delta.x = 1.6f * (float)(mouse.x - center.first) / Core::Context::_swapchain.swapchainWidth;
+		delta.y = 1.6f * (float)(mouse.y - center.second) / Core::Context::Get()->GetSwapchain().swapchainHeight;
+		delta.x = 1.6f * (float)(mouse.x - center.first) / Core::Context::Get()->GetSwapchain().swapchainWidth;
 		float yawSign = GetUpDirection().y < 0 ? -1.0f : 1.0f;
 		float RotationSpeed = 0.4f;
 		m_Yaw += yawSign * delta.x * RotationSpeed;

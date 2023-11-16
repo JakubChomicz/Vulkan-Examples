@@ -33,7 +33,7 @@ namespace Example
 		moduleInfo.flags = vk::ShaderModuleCreateFlags();
 		moduleInfo.codeSize = sourceCode.size();
 		moduleInfo.pCode = reinterpret_cast<const uint32_t*>(sourceCode.data());
-		return Core::Context::_device->createShaderModule(moduleInfo);
+		return Core::Context::Get()->GetDevice()->createShaderModule(moduleInfo);
 	}
 	struct Data
 	{
@@ -70,17 +70,17 @@ namespace Example
 	{
 		auto View = HML::Transform::View_RH(s_Data->Position, HML::Vector3<>(0, 0, 0), HML::Vector3<>(0, -1, 0));	//View Matrix
 		auto Projection = 
-			HML::ClipSpace::Perspective_RH_ZO(HML::Radians(45.0f), float(Core::Context::_swapchain.extent.width)
-				/ float(Core::Context::_swapchain.extent.height), 0.1f, 1000.0f);	//Projection Matrix
+			HML::ClipSpace::Perspective_RH_ZO(HML::Radians(45.0f), float(Core::Context::Get()->GetSwapchain().extent.width)
+				/ float(Core::Context::Get()->GetSwapchain().extent.height), 0.1f, 1000.0f);	//Projection Matrix
 
 		s_Data->pushConstant.ViewProjection = Projection * View;
 		Data::DepthAttachment dAttachment;
-		for (int i = 0; i < Core::Context::_swapchain.swapchainImageViews.size(); ++i)
+		for (int i = 0; i < Core::Context::Get()->GetSwapchain().swapchainImageViews.size(); ++i)
 		{
 			vk::ImageCreateInfo imageInfo;
 			imageInfo.imageType = vk::ImageType::e2D;
-			imageInfo.extent.width = Core::Context::_swapchain.swapchainWidth;
-			imageInfo.extent.height = Core::Context::_swapchain.swapchainHeight;
+			imageInfo.extent.width = Core::Context::Get()->GetSwapchain().swapchainWidth;
+			imageInfo.extent.height = Core::Context::Get()->GetSwapchain().swapchainHeight;
 			imageInfo.extent.depth = 1;
 			imageInfo.mipLevels = 1;
 			imageInfo.arrayLayers = 1;
@@ -91,14 +91,14 @@ namespace Example
 			imageInfo.sharingMode = vk::SharingMode::eExclusive;
 			imageInfo.samples = vk::SampleCountFlagBits::e1;
 
-			dAttachment.image = Core::Context::_device->createImage(imageInfo);
-			dAttachment.MemRequs = Core::Context::_device->getImageMemoryRequirements(dAttachment.image);
+			dAttachment.image = Core::Context::Get()->GetDevice()->createImage(imageInfo);
+			dAttachment.MemRequs = Core::Context::Get()->GetDevice()->getImageMemoryRequirements(dAttachment.image);
 			vk::MemoryAllocateInfo memAlloc;
 			memAlloc.sType = vk::StructureType::eMemoryAllocateInfo;
 			memAlloc.allocationSize = dAttachment.MemRequs.size;
-			memAlloc.memoryTypeIndex = Core::Context::findMemoryType(dAttachment.MemRequs.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);		//FIX
-			dAttachment.Memory = Core::Context::_device->allocateMemory(memAlloc);
-			Core::Context::_device->bindImageMemory(dAttachment.image, dAttachment.Memory, 0);
+			memAlloc.memoryTypeIndex = Core::Context::Get()->findMemoryType(dAttachment.MemRequs.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);		//FIX
+			dAttachment.Memory = Core::Context::Get()->GetDevice()->allocateMemory(memAlloc);
+			Core::Context::Get()->GetDevice()->bindImageMemory(dAttachment.image, dAttachment.Memory, 0);
 
 			vk::ImageViewCreateInfo viewInfo;
 			viewInfo.viewType = vk::ImageViewType::e2D;
@@ -109,7 +109,7 @@ namespace Example
 			viewInfo.subresourceRange.baseArrayLayer = 0;
 			viewInfo.subresourceRange.layerCount = 1;
 			viewInfo.image = dAttachment.image;
-			dAttachment.view = Core::Context::_device->createImageView(viewInfo);
+			dAttachment.view = Core::Context::Get()->GetDevice()->createImageView(viewInfo);
 			
 			s_Data->depth_attachment.push_back(dAttachment);
 		}
@@ -146,14 +146,14 @@ namespace Example
 		vk::Viewport viewport = {};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
-		viewport.width = (float)Core::Context::_swapchain.extent.width;
-		viewport.height = (float)Core::Context::_swapchain.extent.height;
+		viewport.width = (float)Core::Context::Get()->GetSwapchain().extent.width;
+		viewport.height = (float)Core::Context::Get()->GetSwapchain().extent.height;
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
 		vk::Rect2D scissor = {};
 		scissor.offset.x = 0.0f;
 		scissor.offset.y = 0.0f;
-		scissor.extent = Core::Context::_swapchain.extent;
+		scissor.extent = Core::Context::Get()->GetSwapchain().extent;
 		vk::PipelineViewportStateCreateInfo viewportState{};
 		viewportState.flags = vk::PipelineViewportStateCreateFlags();
 		viewportState.viewportCount = 1;
@@ -224,7 +224,7 @@ namespace Example
 		layoutInfo.pushConstantRangeCount = 1;
 		layoutInfo.pPushConstantRanges = &range;
 
-		s_Data->pipelineLayout = Core::Context::_device->createPipelineLayout(layoutInfo);
+		s_Data->pipelineLayout = Core::Context::Get()->GetDevice()->createPipelineLayout(layoutInfo);
 
 
 		//Renderpass
@@ -279,7 +279,7 @@ namespace Example
 		renderpassInfo.pAttachments = attachments.data();
 		renderpassInfo.subpassCount = 1;
 		renderpassInfo.pSubpasses = &subpass;
-		s_Data->renderpass = Core::Context::_device->createRenderPass(renderpassInfo);
+		s_Data->renderpass = Core::Context::Get()->GetDevice()->createRenderPass(renderpassInfo);
 
 
 		//Extra stuff
@@ -304,29 +304,29 @@ namespace Example
 		pipelineInfo.subpass = 0;
 		pipelineInfo.basePipelineHandle = nullptr;
 
-		s_Data->graphicsPipeline = Core::Context::_device->createGraphicsPipeline(nullptr, pipelineInfo).value;
+		s_Data->graphicsPipeline = Core::Context::Get()->GetDevice()->createGraphicsPipeline(nullptr, pipelineInfo).value;
 
-		Core::Context::_device->destroyShaderModule(vertexShader);
-		Core::Context::_device->destroyShaderModule(fragmentShader);
+		Core::Context::Get()->GetDevice()->destroyShaderModule(vertexShader);
+		Core::Context::Get()->GetDevice()->destroyShaderModule(fragmentShader);
 
-		for (int i = 0; i < Core::Context::_swapchain.swapchainImageViews.size(); ++i) {
+		for (int i = 0; i < Core::Context::Get()->GetSwapchain().swapchainImageViews.size(); ++i) {
 
-			std::vector<vk::ImageView> attchs = { Core::Context::_swapchain.swapchainImageViews[i], s_Data->depth_attachment[i].view };
+			std::vector<vk::ImageView> attchs = { Core::Context::Get()->GetSwapchain().swapchainImageViews[i], s_Data->depth_attachment[i].view };
 			vk::FramebufferCreateInfo framebufferInfo;
 			framebufferInfo.flags = vk::FramebufferCreateFlags();
 			framebufferInfo.renderPass = s_Data->renderpass;
 			framebufferInfo.attachmentCount = attchs.size();
 			framebufferInfo.pAttachments = attchs.data();
-			framebufferInfo.width = Core::Context::_swapchain.extent.width;
-			framebufferInfo.height = Core::Context::_swapchain.extent.height;
+			framebufferInfo.width = Core::Context::Get()->GetSwapchain().extent.width;
+			framebufferInfo.height = Core::Context::Get()->GetSwapchain().extent.height;
 			framebufferInfo.layers = 1;
-			s_Data->framebuffers.push_back(Core::Context::_device->createFramebuffer(framebufferInfo));
+			s_Data->framebuffers.push_back(Core::Context::Get()->GetDevice()->createFramebuffer(framebufferInfo));
 		}
 		vk::CommandBufferAllocateInfo allocInfo{};
-		allocInfo.commandPool = Core::Context::_graphicsCommandPool;
+		allocInfo.commandPool = Core::Context::Get()->GetGraphicsCommandPool();
 		allocInfo.level = vk::CommandBufferLevel::ePrimary;
 		allocInfo.commandBufferCount = s_Data->framebuffers.size();
-		s_Data->cmd = Core::Context::_device->allocateCommandBuffers(allocInfo);
+		s_Data->cmd = Core::Context::Get()->GetDevice()->allocateCommandBuffers(allocInfo);
 	}
 	Monke::Monke()
 	{
@@ -386,14 +386,14 @@ namespace Example
 
 		vk::CommandBufferBeginInfo beginInfo{};
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].begin(beginInfo);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].begin(beginInfo);
 
 		vk::RenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.renderPass = s_Data->renderpass;
-		renderPassInfo.framebuffer = s_Data->framebuffers[Core::Context::_swapchain.currentFrame];
+		renderPassInfo.framebuffer = s_Data->framebuffers[Core::Context::Get()->GetSwapchain().currentFrame];
 		renderPassInfo.renderArea.offset.x = 0;
 		renderPassInfo.renderArea.offset.y = 0;
-		renderPassInfo.renderArea.extent = Core::Context::_swapchain.extent;
+		renderPassInfo.renderArea.extent = Core::Context::Get()->GetSwapchain().extent;
 
 		vk::ClearValue clearColor{ std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f} };
 		vk::ClearValue clearDepth;
@@ -402,32 +402,32 @@ namespace Example
 		renderPassInfo.clearValueCount = values.size();
 		renderPassInfo.pClearValues = values.data();
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].bindPipeline(vk::PipelineBindPoint::eGraphics, s_Data->graphicsPipeline);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].bindPipeline(vk::PipelineBindPoint::eGraphics, s_Data->graphicsPipeline);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].pushConstants(s_Data->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Data::Constant), &s_Data->pushConstant);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].pushConstants(s_Data->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Data::Constant), &s_Data->pushConstant);
 		
-		s_Data->monkeModel->DrawModel(s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage]);
+		s_Data->monkeModel->DrawModel(s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage]);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].endRenderPass();
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].endRenderPass();
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].end();
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].end();
 
 		vk::SubmitInfo submit_info{};
 		submit_info.sType = vk::StructureType::eSubmitInfo;
 		vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 		submit_info.pWaitDstStageMask = &waitStage;
 		submit_info.waitSemaphoreCount = 1;
-		submit_info.pWaitSemaphores = &Core::Context::imageAvailableSemaphores[Core::Context::_swapchain.currentFrame];
+		submit_info.pWaitSemaphores = &Core::Context::Get()->GetImageAvailableSemaphore();
 		submit_info.signalSemaphoreCount = 1;
-		submit_info.pSignalSemaphores = &Core::Context::renderFinishedSemaphores[Core::Context::_swapchain.currentFrame];;
+		submit_info.pSignalSemaphores = &Core::Context::Get()->GetRenderFinishedSemaphore();
 		submit_info.commandBufferCount = 1;
-		submit_info.pCommandBuffers = &s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage];
+		submit_info.pCommandBuffers = &s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage];
 
-		Core::Context::_device->resetFences(Core::Context::inFlightFences[Core::Context::_swapchain.currentFrame]);
+		Core::Context::Get()->GetDevice()->resetFences(Core::Context::Get()->GetInFlightFence());
 
-		Core::Context::_graphicsQueue.submit(submit_info, Core::Context::inFlightFences[Core::Context::_swapchain.currentFrame]);
+		Core::Context::Get()->GetGraphicsQueue().submit(submit_info, Core::Context::Get()->GetInFlightFence());
 	}
 	void Monke::Shutdown()
 	{
@@ -437,21 +437,21 @@ namespace Example
 	}
 	void Monke::Destroy()
 	{
-		Core::Context::_device->destroyPipelineLayout(s_Data->pipelineLayout);
-		Core::Context::_device->destroyPipeline(s_Data->graphicsPipeline);
+		Core::Context::Get()->GetDevice()->destroyPipelineLayout(s_Data->pipelineLayout);
+		Core::Context::Get()->GetDevice()->destroyPipeline(s_Data->graphicsPipeline);
 		for (auto framebuffer : s_Data->framebuffers)
-			Core::Context::_device->destroyFramebuffer(framebuffer);
+			Core::Context::Get()->GetDevice()->destroyFramebuffer(framebuffer);
 		s_Data->framebuffers.clear();
 		for (auto attachment : s_Data->depth_attachment)
 		{
-			Core::Context::_device->destroyImageView(attachment.view);
-			Core::Context::_device->freeMemory(attachment.Memory);
-			Core::Context::_device->destroyImage(attachment.image);
+			Core::Context::Get()->GetDevice()->destroyImageView(attachment.view);
+			Core::Context::Get()->GetDevice()->freeMemory(attachment.Memory);
+			Core::Context::Get()->GetDevice()->destroyImage(attachment.image);
 		}
 		s_Data->depth_attachment.clear();
-		Core::Context::_device->freeCommandBuffers(Core::Context::_graphicsCommandPool, s_Data->cmd);
+		Core::Context::Get()->GetDevice()->freeCommandBuffers(Core::Context::Get()->GetGraphicsCommandPool(), s_Data->cmd);
 		s_Data->cmd.clear();
-		Core::Context::_device->destroyRenderPass(s_Data->renderpass);
+		Core::Context::Get()->GetDevice()->destroyRenderPass(s_Data->renderpass);
 	}
 	void Monke::Recreate()
 	{

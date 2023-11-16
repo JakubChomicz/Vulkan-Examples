@@ -14,21 +14,6 @@
 
 namespace Example
 {
-	static uint32_t findMemoryTypeIndex(uint32_t allowedTypes, vk::MemoryPropertyFlags flags)
-	{
-		auto props = Core::Context::_GPU.getMemoryProperties();
-
-		for (uint32_t i = 0; i < props.memoryTypeCount; i++)
-		{
-			if ((allowedTypes & (1 << i))
-				&& (props.memoryTypes[i].propertyFlags & flags) == flags)
-			{
-				return i;
-			}
-		}
-		return -1;
-	}
-
 	static std::vector<char> readFile(std::string filename) {
 
 		std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -73,7 +58,7 @@ namespace Example
 		moduleInfo.flags = vk::ShaderModuleCreateFlags();
 		moduleInfo.codeSize = sourceCode.size();
 		moduleInfo.pCode = reinterpret_cast<const uint32_t*>(sourceCode.data());
-		return Core::Context::_device->createShaderModule(moduleInfo);
+		return Core::Context::Get()->GetDevice()->createShaderModule(moduleInfo);
 	}
 	struct Data
 	{
@@ -153,8 +138,8 @@ namespace Example
 			bufferInfo.size = s_Data->quadVertexBufferSize;
 			bufferInfo.usage |= vk::BufferUsageFlagBits::eVertexBuffer;
 			bufferInfo.sharingMode = vk::SharingMode::eExclusive;
-			s_Data->quadVertexBuffer = Core::Context::_device->createBuffer(bufferInfo);
-			auto memReq = Core::Context::_device->getBufferMemoryRequirements(s_Data->quadVertexBuffer);
+			s_Data->quadVertexBuffer = Core::Context::Get()->GetDevice()->createBuffer(bufferInfo);
+			auto memReq = Core::Context::Get()->GetDevice()->getBufferMemoryRequirements(s_Data->quadVertexBuffer);
 
 			vk::MemoryAllocateInfo allocate;
 			allocate.sType = vk::StructureType::eMemoryAllocateInfo;
@@ -165,10 +150,10 @@ namespace Example
 			flags |= vk::MemoryPropertyFlagBits::eHostVisible;
 			flags |= vk::MemoryPropertyFlagBits::eHostCoherent;
 
-			allocate.memoryTypeIndex = findMemoryTypeIndex(memReq.memoryTypeBits, flags);
+			allocate.memoryTypeIndex = Core::Context::Get()->findMemoryType(memReq.memoryTypeBits, flags);
 
-			s_Data->quadVertexBufferMem = Core::Context::_device->allocateMemory(allocate);
-			Core::Context::_device->bindBufferMemory(s_Data->quadVertexBuffer, s_Data->quadVertexBufferMem, 0);
+			s_Data->quadVertexBufferMem = Core::Context::Get()->GetDevice()->allocateMemory(allocate);
+			Core::Context::Get()->GetDevice()->bindBufferMemory(s_Data->quadVertexBuffer, s_Data->quadVertexBufferMem, 0);
 
 			struct FullScreenQuadVertex
 			{
@@ -192,9 +177,9 @@ namespace Example
 			data[3].Position = HML::Vector3<>(x, y + height, 0.0f);
 			data[3].Uv = HML::Vector2<>(0, 1);
 
-			auto m_data = Core::Context::_device->mapMemory(s_Data->quadVertexBufferMem, 0, s_Data->quadVertexBufferSize);     //FIX
+			auto m_data = Core::Context::Get()->GetDevice()->mapMemory(s_Data->quadVertexBufferMem, 0, s_Data->quadVertexBufferSize);     //FIX
 			memcpy(m_data, data, s_Data->quadVertexBufferSize);
-			Core::Context::_device->unmapMemory(s_Data->quadVertexBufferMem);
+			Core::Context::Get()->GetDevice()->unmapMemory(s_Data->quadVertexBufferMem);
 
 			delete[] data;
 		}
@@ -205,8 +190,8 @@ namespace Example
 			bufferInfo.size = s_Data->quadIndexBufferSize;
 			bufferInfo.usage |= vk::BufferUsageFlagBits::eIndexBuffer;
 			bufferInfo.sharingMode = vk::SharingMode::eExclusive;
-			s_Data->quadIndexBuffer = Core::Context::_device->createBuffer(bufferInfo);
-			auto memReq = Core::Context::_device->getBufferMemoryRequirements(s_Data->quadIndexBuffer);
+			s_Data->quadIndexBuffer = Core::Context::Get()->GetDevice()->createBuffer(bufferInfo);
+			auto memReq = Core::Context::Get()->GetDevice()->getBufferMemoryRequirements(s_Data->quadIndexBuffer);
 
 			vk::MemoryAllocateInfo allocate;
 			allocate.sType = vk::StructureType::eMemoryAllocateInfo;
@@ -217,16 +202,16 @@ namespace Example
 			flags |= vk::MemoryPropertyFlagBits::eHostVisible;
 			flags |= vk::MemoryPropertyFlagBits::eHostCoherent;
 
-			allocate.memoryTypeIndex = findMemoryTypeIndex(memReq.memoryTypeBits, flags);
+			allocate.memoryTypeIndex = Core::Context::Get()->findMemoryType(memReq.memoryTypeBits, flags);
 
-			s_Data->quadIndexBufferMem = Core::Context::_device->allocateMemory(allocate);
-			Core::Context::_device->bindBufferMemory(s_Data->quadIndexBuffer, s_Data->quadIndexBufferMem, 0);
+			s_Data->quadIndexBufferMem = Core::Context::Get()->GetDevice()->allocateMemory(allocate);
+			Core::Context::Get()->GetDevice()->bindBufferMemory(s_Data->quadIndexBuffer, s_Data->quadIndexBufferMem, 0);
 
 			uint32_t quadIndices[6] = { 0, 1, 2, 2, 3, 0 };
 
-			auto m_data = Core::Context::_device->mapMemory(s_Data->quadIndexBufferMem, 0, s_Data->quadIndexBufferSize);     //FIX
+			auto m_data = Core::Context::Get()->GetDevice()->mapMemory(s_Data->quadIndexBufferMem, 0, s_Data->quadIndexBufferSize);     //FIX
 			memcpy(m_data, &quadIndices, s_Data->quadIndexBufferSize);
-			Core::Context::_device->unmapMemory(s_Data->quadIndexBufferMem);
+			Core::Context::Get()->GetDevice()->unmapMemory(s_Data->quadIndexBufferMem);
 		}
 
 		//Renderpass
@@ -315,10 +300,10 @@ namespace Example
 		s_Data->offScreenFrameBuffer = std::make_shared<Core::FrameBuffer>(s_Data->geometryRenderPass->GetRenderPass());
 		s_Data->swapchainTarget = std::make_shared<Core::FrameBuffer>(s_Data->compositeRenderPass->GetRenderPass(), true);
 		vk::CommandBufferAllocateInfo allocInfo{};
-		allocInfo.commandPool = Core::Context::_graphicsCommandPool;
+		allocInfo.commandPool = Core::Context::Get()->GetGraphicsCommandPool();
 		allocInfo.level = vk::CommandBufferLevel::ePrimary;
 		allocInfo.commandBufferCount = s_Data->swapchainTarget->GetFramesInFlightCount();
-		s_Data->cmd = Core::Context::_device->allocateCommandBuffers(allocInfo);
+		s_Data->cmd = Core::Context::Get()->GetDevice()->allocateCommandBuffers(allocInfo);
 
 		vk::WriteDescriptorSet write;
 		vk::DescriptorImageInfo desc_image;
@@ -335,7 +320,7 @@ namespace Example
 		write.pBufferInfo = nullptr;
 		write.pImageInfo = &desc_image;
 
-		Core::Context::_device->updateDescriptorSets(write, nullptr);
+		Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 	}
 
 	PBR::PBR()
@@ -350,8 +335,8 @@ namespace Example
 		s_Data->axe = std::make_shared<Model>("res/Axe/scene.gltf");
 		s_Data->brdfLut = std::make_shared<Texture>("res/BRDF_LUT.tga", false);
 		s_Data->environmentMap = std::make_shared<EnvironmentMap>("res/kloofendal_43d_clear_puresky_4k.hdr");
-		s_Data->cam = std::make_shared<Camera>(HML::Radians(45.0f), float(Core::Context::_swapchain.extent.width) 
-			/ float(Core::Context::_swapchain.extent.height), 0.1f, 1000.0f);
+		s_Data->cam = std::make_shared<Camera>(HML::Radians(45.0f), float(Core::Context::Get()->GetSwapchain().extent.width) 
+			/ float(Core::Context::Get()->GetSwapchain().extent.height), 0.1f, 1000.0f);
 
 		std::vector<vk::DescriptorSetLayoutBinding> bindings;
 
@@ -392,15 +377,15 @@ namespace Example
 		layoutinfo.bindingCount = bindings.size();
 		layoutinfo.pBindings = bindings.data();
 
-		s_Data->CamDescriptorSetLayout = Core::Context::_device->createDescriptorSetLayout(layoutinfo);
+		s_Data->CamDescriptorSetLayout = Core::Context::Get()->GetDevice()->createDescriptorSetLayout(layoutinfo);
 
 		vk::DescriptorSetAllocateInfo info;
 		info.sType = vk::StructureType::eDescriptorSetAllocateInfo;
-		info.descriptorPool = Core::Context::_descriptorPool;
+		info.descriptorPool = Core::Context::Get()->GetDescriptorPool();
 		info.descriptorSetCount = 1;
 		info.pSetLayouts = &s_Data->CamDescriptorSetLayout;
 
-		s_Data->CamDescriptorSet = Core::Context::_device->allocateDescriptorSets(info).front();
+		s_Data->CamDescriptorSet = Core::Context::Get()->GetDevice()->allocateDescriptorSets(info).front();
 
 		vk::DescriptorBufferInfo bufferinfo;
 		bufferinfo.buffer = s_Data->cam->m_CameraUniformBuffer.buffer;
@@ -415,7 +400,7 @@ namespace Example
 		write.pBufferInfo = &bufferinfo;
 		write.descriptorCount = 1;
 
-		Core::Context::_device->updateDescriptorSets(write, nullptr);
+		Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 
 		desc_image.sampler = s_Data->environmentMap->GetRadianceMap().sampler;
 		desc_image.imageView = s_Data->environmentMap->GetRadianceMap().view;
@@ -429,7 +414,7 @@ namespace Example
 		write.pBufferInfo = nullptr;
 		write.pImageInfo = &desc_image;
 
-		Core::Context::_device->updateDescriptorSets(write, nullptr);
+		Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 
 		desc_image.sampler = s_Data->environmentMap->GetIrradianceMap().sampler;
 		desc_image.imageView = s_Data->environmentMap->GetIrradianceMap().view;
@@ -443,7 +428,7 @@ namespace Example
 		write.pBufferInfo = nullptr;
 		write.pImageInfo = &desc_image;
 
-		Core::Context::_device->updateDescriptorSets(write, nullptr);
+		Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 
 		desc_image.sampler = s_Data->brdfLut->GetSampler();
 		desc_image.imageView = s_Data->brdfLut->GetImageView();
@@ -457,7 +442,7 @@ namespace Example
 		write.pBufferInfo = nullptr;
 		write.pImageInfo = &desc_image;
 
-		Core::Context::_device->updateDescriptorSets(write, nullptr);
+		Core::Context::Get()->GetDevice()->updateDescriptorSets(write, nullptr);
 
 		bindings.clear();
 
@@ -472,14 +457,14 @@ namespace Example
 		layoutinfo.bindingCount = bindings.size();
 		layoutinfo.pBindings = bindings.data();
 
-		s_Data->CompositeDescriptorSetLayout = Core::Context::_device->createDescriptorSetLayout(layoutinfo);
+		s_Data->CompositeDescriptorSetLayout = Core::Context::Get()->GetDevice()->createDescriptorSetLayout(layoutinfo);
 
 		info.sType = vk::StructureType::eDescriptorSetAllocateInfo;
-		info.descriptorPool = Core::Context::_descriptorPool;
+		info.descriptorPool = Core::Context::Get()->GetDescriptorPool();
 		info.descriptorSetCount = 1;
 		info.pSetLayouts = &s_Data->CompositeDescriptorSetLayout;
 
-		s_Data->CompositeDescriptorSet = Core::Context::_device->allocateDescriptorSets(info).front();
+		s_Data->CompositeDescriptorSet = Core::Context::Get()->GetDevice()->allocateDescriptorSets(info).front();
 
 		Create();
 	}
@@ -490,14 +475,14 @@ namespace Example
 
 		vk::CommandBufferBeginInfo beginInfo{};
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].begin(beginInfo);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].begin(beginInfo);
 
 		vk::RenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.renderPass = s_Data->geometryRenderPass->GetRenderPass();
 		renderPassInfo.framebuffer = s_Data->offScreenFrameBuffer->GetFrameBuffer();
 		renderPassInfo.renderArea.offset.x = 0;
 		renderPassInfo.renderArea.offset.y = 0;
-		renderPassInfo.renderArea.extent = Core::Context::_swapchain.extent;
+		renderPassInfo.renderArea.extent = Core::Context::Get()->GetSwapchain().extent;
 
 		vk::ClearValue clearColor{ std::array<float, 4>{0.2f, 0.5f, 0.7f, 1.0f} };
 		vk::ClearValue clearDepth;
@@ -507,69 +492,69 @@ namespace Example
 		renderPassInfo.pClearValues = values.data();
 		std::vector<vk::DescriptorSet> sets = { s_Data->CamDescriptorSet };
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].bindPipeline(vk::PipelineBindPoint::eGraphics, s_Data->skyboxPipeline->GetPipeline());
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].bindPipeline(vk::PipelineBindPoint::eGraphics, s_Data->skyboxPipeline->GetPipeline());
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, s_Data->skyboxPipeline->GetLayout(), 0, sets, {});
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, s_Data->skyboxPipeline->GetLayout(), 0, sets, {});
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].bindVertexBuffers(0, s_Data->quadVertexBuffer,{ 0 });
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].bindVertexBuffers(0, s_Data->quadVertexBuffer,{ 0 });
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].bindIndexBuffer(s_Data->quadIndexBuffer, 0, vk::IndexType::eUint32);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].bindIndexBuffer(s_Data->quadIndexBuffer, 0, vk::IndexType::eUint32);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].drawIndexed(6, 1, 0, 0, 0);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].drawIndexed(6, 1, 0, 0, 0);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].bindPipeline(vk::PipelineBindPoint::eGraphics, s_Data->geometryPipeline->GetPipeline());
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].bindPipeline(vk::PipelineBindPoint::eGraphics, s_Data->geometryPipeline->GetPipeline());
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].pushConstants(s_Data->geometryPipeline->GetLayout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(Data::Constant), &s_Data->pushConstant);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].pushConstants(s_Data->geometryPipeline->GetLayout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(Data::Constant), &s_Data->pushConstant);
 		
-		s_Data->axe->DrawModel(s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage], s_Data->geometryPipeline->GetLayout(), sets);
+		s_Data->axe->DrawModel(s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage], s_Data->geometryPipeline->GetLayout(), sets);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].endRenderPass();
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].endRenderPass();
 
 		renderPassInfo.renderPass = s_Data->compositeRenderPass->GetRenderPass();
 		renderPassInfo.framebuffer = s_Data->swapchainTarget->GetFrameBuffer();
 		renderPassInfo.renderArea.offset.x = 0;
 		renderPassInfo.renderArea.offset.y = 0;
-		renderPassInfo.renderArea.extent = Core::Context::_swapchain.extent;
+		renderPassInfo.renderArea.extent = Core::Context::Get()->GetSwapchain().extent;
 
 		sets.clear();
 		sets.push_back(s_Data->CompositeDescriptorSet);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].bindPipeline(vk::PipelineBindPoint::eGraphics, s_Data->compositePipeline->GetPipeline());
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].bindPipeline(vk::PipelineBindPoint::eGraphics, s_Data->compositePipeline->GetPipeline());
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, s_Data->compositePipeline->GetLayout(), 0, sets, {});
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, s_Data->compositePipeline->GetLayout(), 0, sets, {});
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].bindVertexBuffers(0, s_Data->quadVertexBuffer, { 0 });
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].bindVertexBuffers(0, s_Data->quadVertexBuffer, { 0 });
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].bindIndexBuffer(s_Data->quadIndexBuffer, 0, vk::IndexType::eUint32);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].bindIndexBuffer(s_Data->quadIndexBuffer, 0, vk::IndexType::eUint32);
 
-		HML::Vector2<> resolution = { (float)Core::Context::_swapchain.extent.width, (float)Core::Context::_swapchain.extent.height };
+		HML::Vector2<> resolution = { (float)Core::Context::Get()->GetSwapchain().extent.width, (float)Core::Context::Get()->GetSwapchain().extent.height };
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].pushConstants(s_Data->geometryPipeline->GetLayout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(HML::Vector2<>), &resolution);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].pushConstants(s_Data->geometryPipeline->GetLayout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(HML::Vector2<>), &resolution);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].drawIndexed(6, 1, 0, 0, 0);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].drawIndexed(6, 1, 0, 0, 0);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].endRenderPass();
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].endRenderPass();
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].end();
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].end();
 
 		vk::SubmitInfo submit_info{};
 		submit_info.sType = vk::StructureType::eSubmitInfo;
 		vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 		submit_info.pWaitDstStageMask = &waitStage;
 		submit_info.waitSemaphoreCount = 1;
-		submit_info.pWaitSemaphores = &Core::Context::imageAvailableSemaphores[Core::Context::_swapchain.currentFrame];
+		submit_info.pWaitSemaphores = &Core::Context::Get()->GetImageAvailableSemaphore();
 		submit_info.signalSemaphoreCount = 1;
-		submit_info.pSignalSemaphores = &Core::Context::renderFinishedSemaphores[Core::Context::_swapchain.currentFrame];;
+		submit_info.pSignalSemaphores = &Core::Context::Get()->GetRenderFinishedSemaphore();
 		submit_info.commandBufferCount = 1;
-		submit_info.pCommandBuffers = &s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage];
+		submit_info.pCommandBuffers = &s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage];
 
-		Core::Context::_device->resetFences(Core::Context::inFlightFences[Core::Context::_swapchain.currentFrame]);
+		Core::Context::Get()->GetDevice()->resetFences(Core::Context::Get()->GetInFlightFence());
 
-		Core::Context::_graphicsQueue.submit(submit_info, Core::Context::inFlightFences[Core::Context::_swapchain.currentFrame]);
+		Core::Context::Get()->GetGraphicsQueue().submit(submit_info, Core::Context::Get()->GetInFlightFence());
 	}
 
 	void PBR::Shutdown()
@@ -578,8 +563,8 @@ namespace Example
 		s_Data->brdfLut->Destroy();
 		s_Data->environmentMap->Destroy();
 		s_Data->axe->Destroy();
-		Core::Context::_device->destroyDescriptorSetLayout(s_Data->CamDescriptorSetLayout);
-		Core::Context::_device->freeDescriptorSets(Core::Context::_descriptorPool, s_Data->CamDescriptorSet);
+		Core::Context::Get()->GetDevice()->destroyDescriptorSetLayout(s_Data->CamDescriptorSetLayout);
+		Core::Context::Get()->GetDevice()->freeDescriptorSets(Core::Context::Get()->GetDescriptorPool(), s_Data->CamDescriptorSet);
 		Destroy();
 		delete s_Data;
 	}
@@ -591,7 +576,7 @@ namespace Example
 		s_Data->compositePipeline->Destroy();
 		s_Data->offScreenFrameBuffer->Destroy();
 		s_Data->swapchainTarget->Destroy();
-		Core::Context::_device->freeCommandBuffers(Core::Context::_graphicsCommandPool, s_Data->cmd);
+		Core::Context::Get()->GetDevice()->freeCommandBuffers(Core::Context::Get()->GetGraphicsCommandPool(), s_Data->cmd);
 		s_Data->cmd.clear();
 		s_Data->geometryRenderPass->Destroy();
 		s_Data->compositeRenderPass->Destroy();

@@ -32,7 +32,7 @@ namespace Example
 		moduleInfo.flags = vk::ShaderModuleCreateFlags();
 		moduleInfo.codeSize = sourceCode.size();
 		moduleInfo.pCode = reinterpret_cast<const uint32_t*>(sourceCode.data());
-		return Core::Context::_device->createShaderModule(moduleInfo);
+		return Core::Context::Get()->GetDevice()->createShaderModule(moduleInfo);
 	}
 	struct Data
 	{
@@ -64,8 +64,8 @@ namespace Example
 	{
 		auto View = HML::Transform::View_RH(s_Data->Position, HML::Vector3<>(0, 0, 0), HML::Vector3<>(0, -1, 0));	//View Matrix
 		auto Projection = 
-			HML::ClipSpace::Perspective_RH_ZO(HML::Radians(45.0f), float(Core::Context::_swapchain.extent.width)
-				/ float(Core::Context::_swapchain.extent.height), 0.1f, 1000.0f);	//Projection Matrix
+			HML::ClipSpace::Perspective_RH_ZO(HML::Radians(45.0f), float(Core::Context::Get()->GetSwapchain().extent.width)
+				/ float(Core::Context::Get()->GetSwapchain().extent.height), 0.1f, 1000.0f);	//Projection Matrix
 
 		s_Data->pushConstant.ViewProjection = Projection * View;
 		vk::GraphicsPipelineCreateInfo pipelineInfo{};
@@ -106,14 +106,14 @@ namespace Example
 		vk::Viewport viewport = {};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
-		viewport.width = (float)Core::Context::_swapchain.extent.width;
-		viewport.height = (float)Core::Context::_swapchain.extent.height;
+		viewport.width = (float)Core::Context::Get()->GetSwapchain().extent.width;
+		viewport.height = (float)Core::Context::Get()->GetSwapchain().extent.height;
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
 		vk::Rect2D scissor = {};
 		scissor.offset.x = 0.0f;
 		scissor.offset.y = 0.0f;
-		scissor.extent = Core::Context::_swapchain.extent;
+		scissor.extent = Core::Context::Get()->GetSwapchain().extent;
 		vk::PipelineViewportStateCreateInfo viewportState{};
 		viewportState.flags = vk::PipelineViewportStateCreateFlags();
 		viewportState.viewportCount = 1;
@@ -182,7 +182,7 @@ namespace Example
 		layoutInfo.pushConstantRangeCount = 1;
 		layoutInfo.pPushConstantRanges = &range;
 
-		s_Data->pipelineLayout = Core::Context::_device->createPipelineLayout(layoutInfo);
+		s_Data->pipelineLayout = Core::Context::Get()->GetDevice()->createPipelineLayout(layoutInfo);
 
 		pipelineInfo.layout = s_Data->pipelineLayout;
 
@@ -220,7 +220,7 @@ namespace Example
 		renderpassInfo.pAttachments = &colorAttachment;
 		renderpassInfo.subpassCount = 1;
 		renderpassInfo.pSubpasses = &subpass;
-		s_Data->renderpass = Core::Context::_device->createRenderPass(renderpassInfo);
+		s_Data->renderpass = Core::Context::Get()->GetDevice()->createRenderPass(renderpassInfo);
 
 		pipelineInfo.renderPass = s_Data->renderpass;
 		pipelineInfo.subpass = 0;
@@ -232,28 +232,28 @@ namespace Example
 #ifdef M_DEBUG
 		std::cout << "Create Graphics Pipeline" << std::endl;
 #endif
-		s_Data->graphicsPipeline = Core::Context::_device->createGraphicsPipeline(nullptr, pipelineInfo).value;
+		s_Data->graphicsPipeline = Core::Context::Get()->GetDevice()->createGraphicsPipeline(nullptr, pipelineInfo).value;
 
-		Core::Context::_device->destroyShaderModule(vertexShader);
-		Core::Context::_device->destroyShaderModule(fragmentShader);
+		Core::Context::Get()->GetDevice()->destroyShaderModule(vertexShader);
+		Core::Context::Get()->GetDevice()->destroyShaderModule(fragmentShader);
 
-		for (int i = 0; i < Core::Context::_swapchain.swapchainImageViews.size(); ++i) {
+		for (int i = 0; i < Core::Context::Get()->GetSwapchain().swapchainImageViews.size(); ++i) {
 
 			vk::FramebufferCreateInfo framebufferInfo;
 			framebufferInfo.flags = vk::FramebufferCreateFlags();
 			framebufferInfo.renderPass = s_Data->renderpass;
 			framebufferInfo.attachmentCount = 1;
-			framebufferInfo.pAttachments = &Core::Context::_swapchain.swapchainImageViews[i];
-			framebufferInfo.width = Core::Context::_swapchain.extent.width;
-			framebufferInfo.height = Core::Context::_swapchain.extent.height;
+			framebufferInfo.pAttachments = &Core::Context::Get()->GetSwapchain().swapchainImageViews[i];
+			framebufferInfo.width = Core::Context::Get()->GetSwapchain().extent.width;
+			framebufferInfo.height = Core::Context::Get()->GetSwapchain().extent.height;
 			framebufferInfo.layers = 1;
-			s_Data->framebuffers.push_back(Core::Context::_device->createFramebuffer(framebufferInfo));
+			s_Data->framebuffers.push_back(Core::Context::Get()->GetDevice()->createFramebuffer(framebufferInfo));
 		}
 		vk::CommandBufferAllocateInfo allocInfo{};
-		allocInfo.commandPool = Core::Context::_graphicsCommandPool;
+		allocInfo.commandPool = Core::Context::Get()->GetGraphicsCommandPool();
 		allocInfo.level = vk::CommandBufferLevel::ePrimary;
 		allocInfo.commandBufferCount = s_Data->framebuffers.size();
-		s_Data->cmd = Core::Context::_device->allocateCommandBuffers(allocInfo);
+		s_Data->cmd = Core::Context::Get()->GetDevice()->allocateCommandBuffers(allocInfo);
 	}
 	Cube::Cube()
 	{
@@ -310,13 +310,13 @@ namespace Example
 		vbufferinfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
 		vbufferinfo.size = 72 * sizeof(HML::Vector3<>);
 		vbufferinfo.sharingMode = vk::SharingMode::eExclusive;
-		s_Data->vertexBuffer = Core::Context::_device->createBuffer(vbufferinfo);
+		s_Data->vertexBuffer = Core::Context::Get()->GetDevice()->createBuffer(vbufferinfo);
 
-		Core::Context::allocateBufferMemory(s_Data->vertexBuffer, s_Data->veretxBufferMemory);
+		Core::Context::Get()->allocateBufferMemory(s_Data->vertexBuffer, s_Data->veretxBufferMemory);
 
-		void* vmemlocation = Core::Context::_device->mapMemory(s_Data->veretxBufferMemory, 0, 72 * sizeof(HML::Vector3<>));
+		void* vmemlocation = Core::Context::Get()->GetDevice()->mapMemory(s_Data->veretxBufferMemory, 0, 72 * sizeof(HML::Vector3<>));
 		memcpy(vmemlocation, s_Data->verts.data(), 72 * sizeof(HML::Vector3<>));
-		Core::Context::_device->unmapMemory(s_Data->veretxBufferMemory);
+		Core::Context::Get()->GetDevice()->unmapMemory(s_Data->veretxBufferMemory);
 
 		s_Data->bdesc.binding = 0;
 		s_Data->bdesc.stride = 2 * sizeof(HML::Vector3<>);
@@ -344,65 +344,65 @@ namespace Example
 		s_Data->pushConstant.ViewProjection *= s_Data->Model;																//ModelViewProjection Matrix
 		vk::CommandBufferBeginInfo beginInfo{};
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].begin(beginInfo);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].begin(beginInfo);
 
 		vk::RenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.renderPass = s_Data->renderpass;
-		renderPassInfo.framebuffer = s_Data->framebuffers[Core::Context::_swapchain.currentFrame];
+		renderPassInfo.framebuffer = s_Data->framebuffers[Core::Context::Get()->GetSwapchain().currentFrame];
 		renderPassInfo.renderArea.offset.x = 0;
 		renderPassInfo.renderArea.offset.y = 0;
-		renderPassInfo.renderArea.extent = Core::Context::_swapchain.extent;
+		renderPassInfo.renderArea.extent = Core::Context::Get()->GetSwapchain().extent;
 
 		vk::ClearValue clearColor{ std::array<float, 4>{0.2f, 0.5f, 0.7f, 1.0f} };
 		renderPassInfo.clearValueCount = 1;
 		renderPassInfo.pClearValues = &clearColor;
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].bindPipeline(vk::PipelineBindPoint::eGraphics, s_Data->graphicsPipeline);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].bindPipeline(vk::PipelineBindPoint::eGraphics, s_Data->graphicsPipeline);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].bindVertexBuffers(0, s_Data->vertexBuffer, { 0 });
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].bindVertexBuffers(0, s_Data->vertexBuffer, { 0 });
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].pushConstants(s_Data->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Data::Constant), &s_Data->pushConstant);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].pushConstants(s_Data->pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Data::Constant), &s_Data->pushConstant);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].draw(36, 1, 0, 0);
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].draw(36, 1, 0, 0);
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].endRenderPass();
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].endRenderPass();
 
-		s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage].end();
+		s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage].end();
 
 		vk::SubmitInfo submit_info{};
 		submit_info.sType = vk::StructureType::eSubmitInfo;
 		vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 		submit_info.pWaitDstStageMask = &waitStage;
 		submit_info.waitSemaphoreCount = 1;
-		submit_info.pWaitSemaphores = &Core::Context::imageAvailableSemaphores[Core::Context::_swapchain.currentFrame];
+		submit_info.pWaitSemaphores = &Core::Context::Get()->GetImageAvailableSemaphore();
 		submit_info.signalSemaphoreCount = 1;
-		submit_info.pSignalSemaphores = &Core::Context::renderFinishedSemaphores[Core::Context::_swapchain.currentFrame];;
+		submit_info.pSignalSemaphores = &Core::Context::Get()->GetRenderFinishedSemaphore();
 		submit_info.commandBufferCount = 1;
-		submit_info.pCommandBuffers = &s_Data->cmd[Core::Context::_swapchain.nextSwapchainImage];
+		submit_info.pCommandBuffers = &s_Data->cmd[Core::Context::Get()->GetSwapchain().nextSwapchainImage];
 
-		Core::Context::_device->resetFences(Core::Context::inFlightFences[Core::Context::_swapchain.currentFrame]);
+		Core::Context::Get()->GetDevice()->resetFences(Core::Context::Get()->GetInFlightFence());
 
-		Core::Context::_graphicsQueue.submit(submit_info, Core::Context::inFlightFences[Core::Context::_swapchain.currentFrame]);
+		Core::Context::Get()->GetGraphicsQueue().submit(submit_info, Core::Context::Get()->GetInFlightFence());
 	}
 	void Cube::Shutdown()
 	{
-		Core::Context::_device->freeMemory(s_Data->veretxBufferMemory);
-		Core::Context::_device->destroyBuffer(s_Data->vertexBuffer);
+		Core::Context::Get()->GetDevice()->freeMemory(s_Data->veretxBufferMemory);
+		Core::Context::Get()->GetDevice()->destroyBuffer(s_Data->vertexBuffer);
 		Destroy();
 		delete s_Data;
 	}
 	void Cube::Destroy()
 	{
-		Core::Context::_device->destroyPipelineLayout(s_Data->pipelineLayout);
-		Core::Context::_device->destroyPipeline(s_Data->graphicsPipeline);
+		Core::Context::Get()->GetDevice()->destroyPipelineLayout(s_Data->pipelineLayout);
+		Core::Context::Get()->GetDevice()->destroyPipeline(s_Data->graphicsPipeline);
 		for (auto framebuffer : s_Data->framebuffers)
-			Core::Context::_device->destroyFramebuffer(framebuffer);
+			Core::Context::Get()->GetDevice()->destroyFramebuffer(framebuffer);
 		s_Data->framebuffers.clear();
-		Core::Context::_device->freeCommandBuffers(Core::Context::_graphicsCommandPool, s_Data->cmd);
+		Core::Context::Get()->GetDevice()->freeCommandBuffers(Core::Context::Get()->GetGraphicsCommandPool(), s_Data->cmd);
 		s_Data->cmd.clear();
-		Core::Context::_device->destroyRenderPass(s_Data->renderpass);
+		Core::Context::Get()->GetDevice()->destroyRenderPass(s_Data->renderpass);
 	}
 	void Cube::Recreate()
 	{

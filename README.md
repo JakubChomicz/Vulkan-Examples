@@ -15,3 +15,4 @@ Project is using Premake as build system.
  - [Monke](https://github.com/I6-6-6I/Vulkan-Examples/tree/master/Monke)
  - [PlayerController](https://github.com/I6-6-6I/Vulkan-Examples/tree/master/PlayerController)
  - [RayTracing](https://github.com/I6-6-6I/Vulkan-Examples/tree/master/RayTracing)
+ - [PBR](https://github.com/I6-6-6I/Vulkan-Examples/tree/master/PBR)

@@ -7,6 +7,7 @@
 </div>
   
   This example shows how can you implement simple pbr in Vulkan.
+  
   Sample has such features as:
   - PBR materials
   - EnvironmentMap

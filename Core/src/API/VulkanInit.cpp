@@ -63,8 +63,8 @@ namespace Core
 		//Instance
 		{
 #ifdef M_DEBUG
-			_layers.push_back("VK_LAYER_KHRONOS_validation");
-			_instanceExtensions.push_back("VK_EXT_debug_utils");
+			m_Layers.push_back("VK_LAYER_KHRONOS_validation");
+			m_InstanceExtensions.push_back("VK_EXT_debug_utils");
 #endif
 			vk::ApplicationInfo appInfo;
 			appInfo.sType = vk::StructureType::eApplicationInfo;
@@ -89,7 +89,7 @@ namespace Core
 		//Debug Messenger
 		{
 #ifdef M_DEBUG
-			_dispatcher = vk::DispatchLoaderDynamic(*_instance, vkGetInstanceProcAddr);
+			m_Dispatcher = vk::DispatchLoaderDynamic(*m_Instance, vkGetInstanceProcAddr);
 			vk::DebugUtilsMessengerCreateInfoEXT debugInfo;
 			debugInfo.messageSeverity =
 				vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
@@ -100,7 +100,7 @@ namespace Core
 				vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
 				vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation;
 			debugInfo.pfnUserCallback = debugMessegerCallback;
-			_debugMessenger = _instance->createDebugUtilsMessengerEXTUnique(debugInfo, nullptr, VULKAN_HPP_DEFAULT_DISPATCHER);
+			m_DebugMessenger = m_Instance->createDebugUtilsMessengerEXTUnique(debugInfo, nullptr, VULKAN_HPP_DEFAULT_DISPATCHER);
 #endif
 		}
 	}
